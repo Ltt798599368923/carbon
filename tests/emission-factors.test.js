@@ -25,13 +25,13 @@ test('all demo factors have the fields required by the MVP', () => {
 
 test('walking 3 km calculates the product demo result', () => {
   const walk = factors.find((factor) => factor.id === 'walk');
-  assert.equal(calculate(walk, 3), 0.6);
+  assert.ok(Math.abs(calculate(walk, 3) - 0.6) < 1e-9);
   assert.equal(points(walk, 3), 6);
 });
 
 test('reusable item recommendation calculates 0.06 kg and 6 points', () => {
   const reusable = factors.find((factor) => factor.id === 'reusable');
-  assert.equal(calculate(reusable, 1), 0.06);
+  assert.ok(Math.abs(calculate(reusable, 1) - 0.06) < 1e-9);
   assert.equal(points(reusable, 1), 6);
 });
 
@@ -39,3 +39,4 @@ test('small positive behavior still awards at least one point', () => {
   const transit = factors.find((factor) => factor.id === 'transit');
   assert.equal(points(transit, 0.1), 1);
 });
+
