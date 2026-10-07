@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>CarbonLoop · 碳行校园</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-mark">C</div>
+        <div>
+          <div class="brand-name">CarbonLoop</div>
+          <div class="brand-subtitle">碳行校园 · 低碳生活闭环助手</div>
+        </div>
+      </div>
+      <button class="avatar-button" id="profileShortcut" aria-label="打开个人中心">林</button>
+    </header>
+
+    <main class="main-content">
+      <section class="view active" data-view="home">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">今日低碳状态</p>
+            <h1>让每一次绿色选择都被看见</h1>
+            <p class="hero-copy">记录行为、看见变化、和校园伙伴一起完成低碳挑战。</p>
+          </div>
+          <div class="hero-orbit" aria-hidden="true"><span>低碳</span></div>
+        </div>
+
+        <div class="section-heading">
+          <div><p class="eyebrow">我的碳账本</p><h2>今天的成果</h2></div>
+          <button class="text-button" data-go="record">+ 记录行为</button>
+        </div>
+        <div class="metric-grid" id="metricGrid"></div>
+
+        <div class="content-grid">
+          <section class="panel chart-panel">
+            <div class="panel-heading"><div><p class="eyebrow">本周趋势</p><h2>减排量变化</h2></div><span class="trend-badge">↑ 18.6%</span></div>
+            <div class="chart" id="weeklyChart" aria-label="本周减排量柱状图"></div>
+            <div class="chart-labels"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div>
+          </section>
+          <section class="panel challenge-panel">
+            <div class="panel-heading"><div><p class="eyebrow">正在进行</p><h2>校园挑战</h2></div><button class="icon-button" data-go="challenges" aria-label="查看全部挑战">→</button></div>
+            <div id="featuredChallenge"></div>
+          </section>
+        </div>
+
+        <section class="panel recommendation-panel">
+          <div class="recommendation-icon">✦</div>
+          <div><p class="eyebrow">今日减排指南</p><h2 id="recommendationTitle">把一次性餐具换成自带餐具</h2><p id="recommendationBody">完成一次替换，预计可减少约 0.06 kg 碳排放，并获得 6 个积分。</p></div>
+          <button class="outline-button" id="completeRecommendation">去完成</button>
+        </section>
+      </section>
+
+      <section class="view" data-view="record">
+        <div class="page-heading"><p class="eyebrow">记录低碳行为</p><h1>把今天的绿色选择记下来</h1><p>每一笔记录都会进入你的碳账本，生成可解释的减排结果。</p></div>
+        <section class="panel record-form-panel">
+          <form id="recordForm">
+            <label class="field-label" for="behaviorType">行为类型</label>
+            <select id="behaviorType" class="field-control">
+              <option value="walk">步行 / 骑行出行</option>
+              <option value="transit">公交 / 地铁出行</option>
+              <option value="recycle">旧物回收</option>
+              <option value="energy">节约用电</option>
+              <option value="reusable">减少一次性用品</option>
+            </select>
+            <div class="field-row"><div><label class="field-label" for="behaviorAmount">数量</label><input id="behaviorAmount" class="field-control" type="number" min="0.1" step="0.1" value="3" /></div><div><label class="field-label" for="behaviorUnit">单位</label><input id="behaviorUnit" class="field-control muted-input" value="公里" readonly /></div></div>
+            <div class="calculation-preview"><span>预计减排</span><strong id="calculatedReduction">0.60 kg CO₂e</strong><span class="preview-points" id="calculatedPoints">+6 积分</span></div>
+            <button class="primary-button" type="submit">保存到我的碳账本</button>
+          </form>
+        </section>
+        <section class="section-heading"><div><p class="eyebrow">最近记录</p><h2>我的低碳足迹</h2></div></section>
+        <div class="panel record-list" id="recordList"></div>
+      </section>
+
+      <section class="view" data-view="challenges">
+        <div class="page-heading"><p class="eyebrow">一起完成</p><h1>校园低碳挑战</h1><p>个人的微小行动，汇聚成校园的绿色改变。</p></div>
+        <div class="challenge-list" id="challengeList"></div>
+      </section>
+
+      <section class="view" data-view="profile">
+        <div class="profile-banner"><div class="profile-avatar">林</div><div><p class="eyebrow">我的 CarbonLoop</p><h1>林同学</h1><p>河南财经政法大学 · 计算机学院</p></div><span class="level-tag">Lv. 3 绿色行动者</span></div>
+        <div class="metric-grid profile-metrics" id="profileMetrics"></div>
+        <section class="panel achievement-panel"><div class="panel-heading"><div><p class="eyebrow">成长记录</p><h2>我的徽章</h2></div></div><div class="badge-grid"><div class="badge-item earned"><span>♻</span><b>回收新星</b><small>完成 5 次回收</small></div><div class="badge-item earned"><span>🚲</span><b>绿色出行</b><small>累计骑行 20 公里</small></div><div class="badge-item"><span>⚡</span><b>节能达人</b><small>完成 10 次节电</small></div><div class="badge-item"><span>🌱</span><b>校园先锋</b><small>参与 3 个挑战</small></div></div></section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="主导航">
+      <button class="nav-item active" data-go="home"><span>⌂</span><small>首页</small></button>
+      <button class="nav-item" data-go="record"><span>＋</span><small>记录</small></button>
+      <button class="nav-item" data-go="challenges"><span>♧</span><small>挑战</small></button>
+      <button class="nav-item" data-go="profile"><span>◎</span><small>我的</small></button>
+    </nav>
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
