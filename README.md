@@ -8,6 +8,7 @@
 
 - `prototype/`：无需构建工具的 Web 交互原型，用于快速确认产品流程。
 - `data/`：演示用碳排放因子数据，正式提交前必须补齐来源、版本和适用范围。
+- `tests/`：Node.js 内置测试，校验演示因子和主流程计算结果。
 - `openharmony/CarbonLoop/`：OpenHarmony / ArkTS MVP 工程骨架，已实现首页、行为记录、可解释碳计算和最近记录。
 
 ## 目录约定
@@ -23,6 +24,13 @@ python -m http.server 4173
 ```
 
 然后访问 `http://127.0.0.1:4173`。
+
+## 运行测试
+
+```powershell
+cd D:\应用技术大赛\carbon
+node --test tests\emission-factors.test.js
+```
 
 ## OpenHarmony 验证
 
