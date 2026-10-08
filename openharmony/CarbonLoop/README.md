@@ -25,3 +25,7 @@
 - 增加挑战加入状态与个人中心。
 - 增加手机与平板之间的分布式数据同步演示。
 - 将 `data/emission-factors.json` 的来源说明补齐，并让 ArkTS 和 Web 原型共用同一份规则。
+
+## Hvigor 配置
+
+工程级 Hvigor 配置位于 `hvigor/hvigor-config.json5`。如果 DevEco Studio 提示 ohpm 与 hvigor 的开发态版本不一致，先确认该文件的 `modelVersion` 与根目录 `oh-package.json5` 保持一致，再执行同步。
