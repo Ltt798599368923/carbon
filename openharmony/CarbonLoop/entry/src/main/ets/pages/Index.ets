@@ -1,3 +1,4 @@
+import { LengthMetrics } from '@kit.ArkUI';
 import {
   CARBON_FACTORS,
   CarbonFactor,
@@ -136,7 +137,7 @@ struct Index {
 
         Column({ space: 12 }) {
           Text('选择行为').fontSize(16).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Flex({ wrap: FlexWrap.Wrap, space: { main: 8, cross: 8 } }) {
+          Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
             ForEach(CARBON_FACTORS, (factor: CarbonFactor) => {
               Button(`${factor.icon} ${factor.label}`)
                 .fontSize(12)
@@ -198,12 +199,11 @@ struct Index {
 
   @Builder
   private recordRow(record: CarbonRecord) {
-    const factor: CarbonFactor = findFactor(record.factorId);
     Row({ space: 10 }) {
-      Text(factor.icon).fontSize(22);
+      Text(findFactor(record.factorId).icon).fontSize(22);
       Column({ space: 3 }) {
-        Text(factor.label).fontSize(14).fontWeight(FontWeight.Medium).fontColor('#23443E');
-        Text(`${record.amount} ${factor.unit} · ${record.createdAt}`).fontSize(11).fontColor('#7A958E');
+        Text(findFactor(record.factorId).label).fontSize(14).fontWeight(FontWeight.Medium).fontColor('#23443E');
+        Text(`${record.amount} ${findFactor(record.factorId).unit} · ${record.createdAt}`).fontSize(11).fontColor('#7A958E');
       }.alignItems(HorizontalAlign.Start).layoutWeight(1);
       Column({ space: 3 }) {
         Text(`-${formatKg(record.reductionKg)} kg`).fontSize(14).fontColor('#0F766E');
@@ -252,4 +252,7 @@ struct Index {
     .backgroundColor('#F5F8F6');
   }
 }
+
+
+
 

@@ -1,5 +1,10 @@
 {
   "modelVersion": "5.0.0",
+  "name": "carbonloop",
+  "version": "0.1.0",
   "description": "CarbonLoop HarmonyOS application",
   "dependencies": {}
 }
+
+
+
