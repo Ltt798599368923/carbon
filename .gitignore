@@ -15,3 +15,7 @@ coverage/
 Thumbs.db
 
 .hvigor/
+
+# DevEco Preview output
+.preview/
+**/.preview/

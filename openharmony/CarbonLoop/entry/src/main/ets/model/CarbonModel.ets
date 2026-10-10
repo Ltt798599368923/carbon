@@ -47,5 +47,6 @@ export function calculatePoints(factor: CarbonFactor, amount: number): number {
 }
 
 export function formatKg(value: number): string {
-  return value.toFixed(2);
+  const safeValue: number = Number.isFinite(value) ? value : 0;
+  return safeValue.toFixed(2);
 }

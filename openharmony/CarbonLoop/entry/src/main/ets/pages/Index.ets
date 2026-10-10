@@ -25,12 +25,20 @@ struct Index {
     return findFactor(this.selectedFactorId);
   }
 
-  private get totalReduction(): number {
-    return this.records.reduce((total: number, item: CarbonRecord) => total + item.reductionKg, 0);
+  private calculateTotalReduction(): number {
+    let total: number = 0;
+    for (const item of this.records) {
+      total += item.reductionKg;
+    }
+    return total;
   }
 
-  private get totalPoints(): number {
-    return this.records.reduce((total: number, item: CarbonRecord) => total + item.points, 0);
+  private calculateTotalPoints(): number {
+    let total: number = 0;
+    for (const item of this.records) {
+      total += item.points;
+    }
+    return total;
   }
 
   private get previewAmount(): number {
@@ -79,8 +87,8 @@ struct Index {
         .borderRadius(24);
 
         Row({ space: 10 }) {
-          this.metric('累计减排', formatKg(this.totalReduction), 'kg', '可解释计算');
-          this.metric('碳积分', `${this.totalPoints}`, '分', '持续积累中');
+          this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '可解释计算');
+          this.metric('碳积分', `${this.calculateTotalPoints()}`, '分', '持续积累中');
         }
         .width('100%');
 
