@@ -21,7 +21,7 @@ struct Index {
   ];
   @State notice: string = '';
 
-  private get selectedFactor(): CarbonFactor {
+  private getSelectedFactor(): CarbonFactor {
     return findFactor(this.selectedFactorId);
   }
 
@@ -41,17 +41,17 @@ struct Index {
     return total;
   }
 
-  private get previewAmount(): number {
+  private getPreviewAmount(): number {
     const value: number = Number(this.amountText);
     return Number.isFinite(value) ? Math.max(0, value) : 0;
   }
 
-  private get previewReduction(): number {
-    return calculateReduction(this.selectedFactor, this.previewAmount);
+  private getPreviewReduction(): number {
+    return calculateReduction(this.getSelectedFactor(), this.getPreviewAmount());
   }
 
-  private get previewPoints(): number {
-    return calculatePoints(this.selectedFactor, this.previewAmount);
+  private getPreviewPoints(): number {
+    return calculatePoints(this.getSelectedFactor(), this.getPreviewAmount());
   }
 
   @Builder
@@ -155,7 +155,7 @@ struct Index {
                 .onClick(() => this.selectedFactorId = factor.id);
             }, (factor: CarbonFactor) => factor.id);
           }
-          Text(`数量（${this.selectedFactor.unit}）`).fontSize(14).fontColor('#52706A');
+          Text(`数量（${this.getSelectedFactor().unit}）`).fontSize(14).fontColor('#52706A');
           TextInput({ text: this.amountText, placeholder: '请输入数量' })
             .type(InputType.Number)
             .onChange((value: string) => this.amountText = value)
@@ -164,10 +164,10 @@ struct Index {
           Row() {
             Column({ space: 4 }) {
               Text('预计减排').fontSize(12).fontColor('#52706A');
-              Text(`${formatKg(this.previewReduction)} kg CO₂e`).fontSize(21).fontWeight(FontWeight.Bold).fontColor('#0F766E');
+              Text(`${formatKg(this.getPreviewReduction())} kg CO₂e`).fontSize(21).fontWeight(FontWeight.Bold).fontColor('#0F766E');
             }.alignItems(HorizontalAlign.Start);
             Blank();
-            Text(`+${this.previewPoints} 积分`).fontSize(14).fontColor('#A35A17');
+            Text(`+${this.getPreviewPoints()} 积分`).fontSize(14).fontColor('#A35A17');
           }
           .padding(14)
           .backgroundColor('#F1F8E7')
@@ -223,17 +223,17 @@ struct Index {
   }
 
   private saveRecord(): void {
-    if (this.previewAmount <= 0) {
+    if (this.getPreviewAmount() <= 0) {
       this.notice = '请输入大于 0 的数量';
       return;
     }
-    const factor: CarbonFactor = this.selectedFactor;
+    const factor: CarbonFactor = this.getSelectedFactor();
     const record: CarbonRecord = {
       id: `${Date.now()}`,
       factorId: factor.id,
-      amount: this.previewAmount,
-      reductionKg: this.previewReduction,
-      points: this.previewPoints,
+      amount: this.getPreviewAmount(),
+      reductionKg: this.getPreviewReduction(),
+      points: this.getPreviewPoints(),
       createdAt: '刚刚'
     };
     this.records = [record, ...this.records];
