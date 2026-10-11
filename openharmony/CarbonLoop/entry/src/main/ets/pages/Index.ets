@@ -182,34 +182,41 @@ struct Index {
   @Builder
   private challengeView() {
     Scroll() {
-      Column({ space: 16 }) {
-        Column({ space: 8 }) {
-          Text('校园挑战').fontSize(14).fontColor('#D9F99D').fontWeight(FontWeight.Bold);
-          Text('和同学一起，把低碳变成习惯').fontSize(24).fontWeight(FontWeight.Bold).fontColor('#FFFFFF');
-          Text('完成行为记录，自动累计挑战进度').fontSize(13).fontColor('#D7EFDF');
+      Column({ space: 14 }) {
+        Column({ space: 5 }) {
+          Text('挑战').fontSize(13).fontColor('#0F766E').fontWeight(FontWeight.Bold);
+          Text('骑行与步行周').fontSize(28).fontWeight(FontWeight.Bold).fontColor('#123B35');
+          Text('用 15 公里的绿色出行，换一枚校园低碳徽章。').fontSize(13).fontColor('#6B817B');
         }
         .alignItems(HorizontalAlign.Start)
-        .padding(20)
         .width('100%')
-        .backgroundColor('#0F766E')
-        .borderRadius(24);
+        .padding({ top: 8, bottom: 4 });
 
         Column({ space: 12 }) {
           Row() {
-            Text('🚲').fontSize(30);
+            Row({ space: 8 }) {
+              Text('🚲').fontSize(24);
+              Text(this.challengeJoined ? '进行中' : '可加入').fontSize(12).fontColor('#0F766E').backgroundColor('#E7F4EC').padding({ left: 8, right: 8, top: 4, bottom: 4 }).borderRadius(8);
+            }
             Blank();
-            Text(this.challengeJoined ? '进行中' : '可加入').fontSize(12).fontColor('#0F766E').backgroundColor('#E8F7E9').padding({ left: 8, right: 8, top: 4, bottom: 4 }).borderRadius(10);
+            Text('本周挑战').fontSize(12).fontColor('#8A9B95');
           }
-          Text('骑行与步行周').fontSize(22).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Text('本周累计步行或骑行 15 公里，完成后获得校园低碳徽章。').fontSize(13).fontColor('#6B817B');
+          Text('把通勤变成减排行动').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+          Text('记录步行或骑行里程，进度会自动累计。').fontSize(13).fontColor('#6B817B');
           Row() {
-            Text(`${this.getChallengeProgress()} km`).fontSize(28).fontWeight(FontWeight.Bold).fontColor('#0F766E');
+            Column({ space: 2 }) {
+              Text(`${this.getChallengeProgress()} km`).fontSize(30).fontWeight(FontWeight.Bold).fontColor('#0F766E');
+              Text('已完成').fontSize(11).fontColor('#7A958E');
+            }.alignItems(HorizontalAlign.Start);
             Blank();
-            Text('目标 15 km').fontSize(13).fontColor('#52706A');
+            Column({ space: 2 }) {
+              Text('15 km').fontSize(18).fontWeight(FontWeight.Medium).fontColor('#52706A');
+              Text('目标里程').fontSize(11).fontColor('#7A958E');
+            }.alignItems(HorizontalAlign.End);
           }
-          Progress({ value: this.getChallengeProgress(), total: 15 }).color('#0F766E').backgroundColor('#DDEBE3');
+          Progress({ value: this.getChallengeProgress(), total: 15 }).color('#0F766E').backgroundColor('#E1ECE6');
           if (!this.challengeJoined) {
-            Button('加入挑战').width('100%').backgroundColor('#D9F99D').fontColor('#123B35').borderRadius(14).onClick(() => this.joinChallenge());
+            Button('加入挑战').width('100%').backgroundColor('#C9F57D').fontColor('#123B35').borderRadius(12).onClick(() => this.joinChallenge());
           } else {
             Text('你已加入挑战，去记录一次步行或骑行吧。').fontSize(13).fontColor('#0F766E');
           }
@@ -220,42 +227,56 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(16)
         .width('100%');
 
         Column({ space: 10 }) {
-          Text('完成挑战的小建议').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Text('每天记录一次校园内的步行或骑行，进度会自动累计。').fontSize(13).fontColor('#6B817B');
-          Button('记录一次步行 / 骑行').width('100%').backgroundColor('#EDF5EF').fontColor('#0F766E').borderRadius(14).onClick(() => {
-            this.selectedFactorId = 'walk';
-            this.amountText = '1';
-            this.currentTab = 1;
-          });
-          Button('记录公交 / 地铁').width('100%').backgroundColor('#EDF5EF').fontColor('#0F766E').borderRadius(14).onClick(() => {
-            this.selectedFactorId = 'transit';
-            this.amountText = '1';
-            this.currentTab = 1;
-          });
+          Text('快速记录').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+          Text('今天就完成一笔低碳出行记录。').fontSize(13).fontColor('#6B817B');
+          Row({ space: 8 }) {
+            Button('步行 / 骑行')
+              .layoutWeight(1)
+              .fontSize(13)
+              .backgroundColor('#EAF4EE')
+              .fontColor('#0F766E')
+              .borderRadius(11)
+              .onClick(() => {
+                this.selectedFactorId = 'walk';
+                this.amountText = '1';
+                this.currentTab = 1;
+              });
+            Button('公交 / 地铁')
+              .layoutWeight(1)
+              .fontSize(13)
+              .backgroundColor('#EAF4EE')
+              .fontColor('#0F766E')
+              .borderRadius(11)
+              .onClick(() => {
+                this.selectedFactorId = 'transit';
+                this.amountText = '1';
+                this.currentTab = 1;
+              });
+          }
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(16)
         .width('100%');
 
         Column({ space: 8 }) {
           Text('挑战规则').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Text('• 仅“步行 / 骑行出行”会计入本次挑战进度。').fontSize(13).fontColor('#6B817B');
-          Text('• 每次记录都会同时获得碳积分和减排量。').fontSize(13).fontColor('#6B817B');
-          Text('• 当前版本为本地演示数据，后续可接入校园排行榜。').fontSize(13).fontColor('#6B817B');
+          Text('01  仅步行 / 骑行出行会计入本次挑战进度。').fontSize(13).fontColor('#6B817B');
+          Text('02  每次记录都会同时获得碳积分和减排量。').fontSize(13).fontColor('#6B817B');
+          Text('03  当前为本地演示版本，排行榜暂不接入真实校园数据。').fontSize(13).fontColor('#6B817B');
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
-        .backgroundColor('#F1F8E7')
-        .borderRadius(20)
+        .backgroundColor('#EEF5F0')
+        .borderRadius(16)
         .width('100%');
       }
-      .padding({ left: 16, right: 16, top: 18, bottom: 24 });
+      .padding({ left: 18, right: 18, top: 12, bottom: 24 });
     }
     .layoutWeight(1);
   }
@@ -324,20 +345,18 @@ struct Index {
   @Builder
   private profileView() {
     Scroll() {
-      Column({ space: 16 }) {
-        Column({ space: 8 }) {
-          Text('我的低碳档案').fontSize(14).fontColor('#D9F99D').fontWeight(FontWeight.Bold);
-          Text('低碳行动者').fontSize(26).fontWeight(FontWeight.Bold).fontColor('#FFFFFF');
-          Text('把每一次选择，积累成看得见的改变').fontSize(13).fontColor('#D7EFDF');
+      Column({ space: 14 }) {
+        Column({ space: 5 }) {
+          Text('我的').fontSize(13).fontColor('#0F766E').fontWeight(FontWeight.Bold);
+          Text('低碳行动者').fontSize(28).fontWeight(FontWeight.Bold).fontColor('#123B35');
+          Text('把每一次选择，积累成看得见的改变。').fontSize(13).fontColor('#6B817B');
         }
         .alignItems(HorizontalAlign.Start)
-        .padding(20)
         .width('100%')
-        .backgroundColor('#0F766E')
-        .borderRadius(24);
+        .padding({ top: 8, bottom: 4 });
 
         Row({ space: 10 }) {
-          this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '已记录的绿色行动');
+          this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '绿色行动成果');
           this.metric('碳积分', `${this.calculateTotalPoints()}`, '分', '持续积累中');
         }
         .width('100%');
@@ -354,12 +373,12 @@ struct Index {
               Text('校园挑战').fontSize(12).fontColor('#6B817B');
             }.alignItems(HorizontalAlign.Start).layoutWeight(1);
           }
-          Text('当前数据保存在本机，重新打开应用后仍会保留。').fontSize(12).fontColor('#7A958E');
+          Text('数据保存在本机，重新打开应用后仍会保留。').fontSize(12).fontColor('#7A958E');
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(16)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -380,7 +399,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(16)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -396,7 +415,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(16)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -413,7 +432,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(16)
         .width('100%');
 
         Column({ space: 8 }) {
@@ -421,18 +440,18 @@ struct Index {
           Text(this.challengeJoined ? '继续完成步行或骑行记录，争取达成 15 公里挑战。' : '先加入校园挑战，再记录一次步行或骑行。').fontSize(13).fontColor('#6B817B');
           Button(this.challengeJoined ? '去记录低碳行为' : '去参加校园挑战')
             .width('100%')
-            .backgroundColor('#D9F99D')
+            .backgroundColor('#C9F57D')
             .fontColor('#123B35')
-            .borderRadius(14)
+            .borderRadius(12)
             .onClick(() => this.currentTab = this.challengeJoined ? 1 : 2);
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
-        .backgroundColor('#F1F8E7')
-        .borderRadius(20)
+        .backgroundColor('#EEF5F0')
+        .borderRadius(16)
         .width('100%');
       }
-      .padding({ left: 16, right: 16, top: 18, bottom: 24 });
+      .padding({ left: 18, right: 18, top: 12, bottom: 24 });
     }
     .layoutWeight(1);
   }
