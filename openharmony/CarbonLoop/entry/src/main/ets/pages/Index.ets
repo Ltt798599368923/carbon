@@ -125,17 +125,6 @@ struct Index {
   private homeView() {
     Scroll() {
       Column({ space: 16 }) {
-        Column({ space: 8 }) {
-          Text('CarbonLoop').fontSize(14).fontColor('#D9F99D').fontWeight(FontWeight.Bold);
-          Text('让每一次绿色选择都被看见').fontSize(26).fontWeight(FontWeight.Bold).fontColor('#FFFFFF');
-          Text('记录行为 · 看见变化 · 一起完成低碳挑战').fontSize(13).fontColor('#D7EFDF');
-        }
-        .alignItems(HorizontalAlign.Start)
-        .padding(20)
-        .width('100%')
-        .backgroundColor('#0F766E')
-        .borderRadius(24);
-
         Row({ space: 10 }) {
           this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '可解释计算');
           this.metric('碳积分', `${this.calculateTotalPoints()}`, '分', '持续积累中');
