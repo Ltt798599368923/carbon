@@ -105,6 +105,18 @@ struct Index {
   }
 
   @Builder
+  private pageHeader(kicker: string, title: string, subtitle: string) {
+    Column({ space: 5 }) {
+      Text(kicker).fontSize(12).fontColor('#0F766E').fontWeight(FontWeight.Bold);
+      Text(title).fontSize(28).fontWeight(FontWeight.Bold).fontColor('#172C2A');
+      Text(subtitle).fontSize(13).fontColor('#73807B');
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding({ top: 8, bottom: 4 });
+  }
+
+  @Builder
   private metric(label: string, value: string, unit: string, caption: string) {
     Column({ space: 4 }) {
       Text(label).fontSize(13).fontColor('#52706A');
@@ -117,14 +129,15 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .padding(14)
     .backgroundColor('#FFFFFF')
-    .borderRadius(18)
+    .borderRadius(12)
     .layoutWeight(1);
   }
 
   @Builder
   private homeView() {
     Scroll() {
-      Column({ space: 16 }) {
+      Column({ space: 14 }) {
+        this.pageHeader('CarbonLoop', '今天的绿色账单', '记录一件小事，也是在给校园减一点碳。');
         Row({ space: 10 }) {
           this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '可解释计算');
           this.metric('碳积分', `${this.calculateTotalPoints()}`, '分', '持续积累中');
@@ -143,12 +156,12 @@ struct Index {
             this.selectedFactorId = 'reusable';
             this.amountText = '1';
             this.currentTab = 1;
-          }).backgroundColor('#D9F99D').fontColor('#123B35').borderRadius(14).width('100%');
+          }).backgroundColor('#D9F99D').fontColor('#123B35').borderRadius(10).width('100%');
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -158,7 +171,7 @@ struct Index {
             Text(this.challengeJoined ? '已加入' : '推荐').fontSize(12).fontColor('#0F766E').backgroundColor('#E8F7E9').padding({ left: 8, right: 8, top: 4, bottom: 4 }).borderRadius(10);
           }
           Row({ space: 12 }) {
-            Text('🚲').fontSize(28);
+            Text('行').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#0F766E').backgroundColor('#E6F2EC').padding(8).borderRadius(8);
             Column({ space: 4 }) {
               Text('骑行与步行周').fontSize(16).fontWeight(FontWeight.Medium).fontColor('#23443E');
               Text(`${this.getChallengeProgress()} / 15 km`).fontSize(13).fontColor('#6B817B');
@@ -171,7 +184,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(10)
         .width('100%');
       }
       .padding({ left: 16, right: 16, top: 16, bottom: 24 });
@@ -183,19 +196,12 @@ struct Index {
   private challengeView() {
     Scroll() {
       Column({ space: 14 }) {
-        Column({ space: 5 }) {
-          Text('挑战').fontSize(13).fontColor('#0F766E').fontWeight(FontWeight.Bold);
-          Text('骑行与步行周').fontSize(28).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Text('用 15 公里的绿色出行，换一枚校园低碳徽章。').fontSize(13).fontColor('#6B817B');
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
-        .padding({ top: 8, bottom: 4 });
+        this.pageHeader('挑战', '骑行与步行周', '用 15 公里的绿色出行，换一枚校园低碳徽章。');
 
         Column({ space: 12 }) {
           Row() {
             Row({ space: 8 }) {
-              Text('🚲').fontSize(24);
+              Text('行').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#0F766E').backgroundColor('#E6F2EC').padding(7).borderRadius(8);
               Text(this.challengeJoined ? '进行中' : '可加入').fontSize(12).fontColor('#0F766E').backgroundColor('#E7F4EC').padding({ left: 8, right: 8, top: 4, bottom: 4 }).borderRadius(8);
             }
             Blank();
@@ -227,7 +233,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -261,7 +267,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 8 }) {
@@ -273,7 +279,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#EEF5F0')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
       }
       .padding({ left: 18, right: 18, top: 12, bottom: 24 });
@@ -298,7 +304,7 @@ struct Index {
     .padding(12)
     .layoutWeight(1)
     .backgroundColor(earned ? '#F1F8E7' : '#F7F9F8')
-    .borderRadius(16);
+    .borderRadius(10);
   }
 
   @Builder
@@ -346,14 +352,7 @@ struct Index {
   private profileView() {
     Scroll() {
       Column({ space: 14 }) {
-        Column({ space: 5 }) {
-          Text('我的').fontSize(13).fontColor('#0F766E').fontWeight(FontWeight.Bold);
-          Text('低碳行动者').fontSize(28).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Text('把每一次选择，积累成看得见的改变。').fontSize(13).fontColor('#6B817B');
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
-        .padding({ top: 8, bottom: 4 });
+        this.pageHeader('我的', '低碳行动者', '把每一次选择，积累成看得见的改变。');
 
         Row({ space: 10 }) {
           this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '绿色行动成果');
@@ -378,7 +377,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -399,7 +398,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -415,7 +414,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -432,7 +431,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 8 }) {
@@ -448,7 +447,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#EEF5F0')
-        .borderRadius(16)
+        .borderRadius(10)
         .width('100%');
       }
       .padding({ left: 18, right: 18, top: 12, bottom: 24 });
@@ -460,10 +459,7 @@ struct Index {
   private recordView() {
     Scroll() {
       Column({ space: 16 }) {
-        Column({ space: 6 }) {
-          Text('记录低碳行为').fontSize(26).fontWeight(FontWeight.Bold).fontColor('#123B35');
-          Text('每一笔记录都会进入你的碳账本。').fontSize(13).fontColor('#6B817B');
-        }.alignItems(HorizontalAlign.Start).width('100%');
+        this.pageHeader('记录', '记录低碳行为', '每一笔记录都会进入你的碳账本。');
 
         Column({ space: 12 }) {
           Text('选择行为').fontSize(16).fontWeight(FontWeight.Bold).fontColor('#123B35');
@@ -473,7 +469,7 @@ struct Index {
                 .fontSize(12)
                 .fontColor(factor.id === this.selectedFactorId ? '#FFFFFF' : '#315B53')
                 .backgroundColor(factor.id === this.selectedFactorId ? '#0F766E' : '#EDF5EF')
-                .borderRadius(14)
+                .borderRadius(10)
                 .onClick(() => this.selectedFactorId = factor.id);
             }, (factor: CarbonFactor) => factor.id);
           }
@@ -493,12 +489,12 @@ struct Index {
           }
           .padding(14)
           .backgroundColor('#F1F8E7')
-          .borderRadius(14);
+          .borderRadius(10);
           Button('保存到我的碳账本')
             .width('100%')
             .backgroundColor('#0F766E')
             .fontColor('#FFFFFF')
-            .borderRadius(14)
+            .borderRadius(10)
             .onClick(() => this.saveRecord());
           if (this.notice.length > 0) {
             Text(this.notice).fontSize(12).fontColor('#0F766E');
@@ -507,7 +503,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(10)
         .width('100%');
 
         Column({ space: 10 }) {
@@ -519,7 +515,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
-        .borderRadius(20)
+        .borderRadius(10)
         .width('100%');
 
 
@@ -537,7 +533,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#F1F8E7')
-        .borderRadius(20)
+        .borderRadius(10)
         .width('100%');
       }
       .padding({ left: 16, right: 16, top: 18, bottom: 24 });
@@ -593,10 +589,10 @@ struct Index {
         this.profileView();
       }
       Row() {
-        Button('首页').layoutWeight(1).backgroundColor(this.currentTab === 0 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 0);
-        Button('记录').layoutWeight(1).backgroundColor(this.currentTab === 1 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 1);
-        Button('挑战').layoutWeight(1).backgroundColor(this.currentTab === 2 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 2);
-        Button('我的').layoutWeight(1).backgroundColor(this.currentTab === 3 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 3);
+        Button('首页').layoutWeight(1).backgroundColor(this.currentTab === 0 ? '#E6F2EC' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 0);
+        Button('记录').layoutWeight(1).backgroundColor(this.currentTab === 1 ? '#E6F2EC' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 1);
+        Button('挑战').layoutWeight(1).backgroundColor(this.currentTab === 2 ? '#E6F2EC' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 2);
+        Button('我的').layoutWeight(1).backgroundColor(this.currentTab === 3 ? '#E6F2EC' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 3);
       }
       .width('100%')
       .padding({ left: 12, right: 12, top: 8, bottom: 12 })
