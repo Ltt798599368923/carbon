@@ -8,7 +8,8 @@ import {
   formatKg
 } from '../model/CarbonModel';
 import { carbonPreferences } from '../entryability/EntryAbility';
-import { loadChallengeJoined, loadRecords, saveChallengeJoined, saveRecords } from '../storage/CarbonStorage';
+import { loadBackendToken, loadChallengeJoined, loadDeviceId, loadRecords, saveBackendToken, saveChallengeJoined, saveDeviceId, saveRecords } from '../storage/CarbonStorage';
+import { ApiRecord, CarbonApiClient } from '../network/ApiClient';
 
 @Entry
 @Component
@@ -16,13 +17,13 @@ struct Index {
   @State currentTab: number = 0;
   @State selectedFactorId: string = 'walk';
   @State amountText: string = '3';
-  @State records: CarbonRecord[] = [
-    { id: 'demo-1', factorId: 'walk', amount: 3, reductionKg: 0.6, points: 6, createdAt: '今天 08:40' },
-    { id: 'demo-2', factorId: 'reusable', amount: 2, reductionKg: 0.12, points: 12, createdAt: '昨天 12:20' }
-  ];
+  // 初次启动不注入演示记录；所有数据都来自真实用户操作或后端同步。
+  @State records: CarbonRecord[] = [];
   @State notice: string = '';
   @State challengeJoined: boolean = false;
   @State challengeNotice: string = '';
+  @State backendStatus: string = '本地待同步';
+  private api: CarbonApiClient = new CarbonApiClient();
 
   private readonly ink: string = '#20332F';
   private readonly accent: string = '#2C6B5D';
@@ -38,6 +39,46 @@ struct Index {
       this.records = savedRecords;
     }
     this.challengeJoined = loadChallengeJoined(carbonPreferences);
+    let deviceId: string | null = loadDeviceId(carbonPreferences);
+    if (deviceId === null) {
+      deviceId = `device-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      saveDeviceId(carbonPreferences, deviceId);
+    }
+    this.initializeBackend(deviceId);
+  }
+
+  private async initializeBackend(deviceId: string): Promise<void> {
+    try {
+      const savedToken: string | null = loadBackendToken(carbonPreferences);
+      if (savedToken !== null) {
+        this.api.setToken(savedToken);
+      }
+      const login = await this.api.guestLogin(deviceId);
+      if (login.token === undefined) {
+        throw new Error('登录响应缺少 token');
+      }
+      this.api.setToken(login.token);
+      saveBackendToken(carbonPreferences, login.token);
+      this.backendStatus = '云端已连接';
+      for (const localRecord of this.records) {
+        await this.api.createRecord(localRecord.id, localRecord.factorId, localRecord.amount, new Date().toISOString());
+      }
+      const remoteRecords: ApiRecord[] = await this.api.getRecords();
+      if (remoteRecords.length > 0) {
+        this.records = remoteRecords.map((record: ApiRecord): CarbonRecord => ({
+          id: record.clientRecordId.length > 0 ? record.clientRecordId : record.id,
+          factorId: record.factorId,
+          amount: record.amount,
+          reductionKg: record.reductionKg,
+          points: record.points,
+          createdAt: record.createdAt
+        }));
+        saveRecords(carbonPreferences, this.records);
+      }
+    } catch (error) {
+      this.backendStatus = '离线可用';
+      console.error(`CarbonLoop backend sync skipped: ${error}`);
+    }
   }
 
   private getSelectedFactor(): CarbonFactor {
@@ -74,10 +115,18 @@ struct Index {
     return Math.min(15, this.calculateChallengeDistance());
   }
 
-  private joinChallenge(): void {
+  private async joinChallenge(): Promise<void> {
+    try {
+      await this.api.joinChallenge('walk-week-2026-10');
+      this.backendStatus = '云端已连接';
+      this.challengeNotice = '已加入云端挑战。记录步行或骑行后，进度会自动更新。';
+    } catch (error) {
+      this.backendStatus = '离线可用';
+      this.challengeNotice = '已在本机加入，联网后会自动同步。';
+      console.error(`CarbonLoop challenge sync skipped: ${error}`);
+    }
     this.challengeJoined = true;
     saveChallengeJoined(carbonPreferences, true);
-    this.challengeNotice = '已加入。记录步行或骑行后，进度会自动更新。';
   }
 
   private getPreviewAmount(): number {
@@ -439,6 +488,7 @@ struct Index {
 
         Column({ space: 0 }) {
           this.sectionTitle('记录概览', '当前状态');
+          this.summaryRow('数据连接', this.backendStatus);
           this.summaryRow('行为记录', `${this.records.length} 笔`);
           this.summaryRow('挑战状态', this.challengeJoined ? '已加入本周挑战' : '尚未加入挑战');
           this.summaryRow('步行与骑行', `${this.getChallengeProgress()} / 15 km`);
@@ -521,7 +571,20 @@ struct Index {
     };
     this.records = [record, ...this.records];
     saveRecords(carbonPreferences, this.records);
-    this.notice = `已记录 ${factor.label}，获得 ${record.points} 个积分`;
+    this.notice = `已记录 ${factor.label}，正在同步云端…`;
+    this.syncRecord(record);
+  }
+
+  private async syncRecord(record: CarbonRecord): Promise<void> {
+    try {
+      const remote: ApiRecord = await this.api.createRecord(record.id, record.factorId, record.amount, new Date().toISOString());
+      this.backendStatus = '云端已连接';
+      this.notice = `已同步 ${findFactor(record.factorId).label}，获得 ${remote.points} 个积分`;
+    } catch (error) {
+      this.backendStatus = '离线可用';
+      this.notice = `已保存在本机，联网后会自动同步`;
+      console.error(`CarbonLoop record sync skipped: ${error}`);
+    }
   }
 
   build() {
@@ -563,5 +626,3 @@ struct Index {
       .onClick(() => this.currentTab = tab);
   }
 }
-
-

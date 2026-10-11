@@ -1,0 +1,20 @@
+{
+  "users": [],
+  "records": [],
+  "pointsLedger": [],
+  "challenges": [
+    {
+      "id": "walk-week-2026-10",
+      "name": "步行与骑行周",
+      "description": "本周累计完成 15 公里绿色出行。",
+      "type": "distance",
+      "factorIds": ["walk"],
+      "target": 15,
+      "unit": "公里",
+      "reward": "绿色出发",
+      "startsAt": "2026-10-05T00:00:00.000Z",
+      "endsAt": "2026-12-31T23:59:59.999Z"
+    }
+  ],
+  "challengeParticipants": []
+}

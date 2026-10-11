@@ -1,0 +1,12 @@
+{
+  "name": "carbonloop-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node --watch src/server.mjs",
+    "test": "node --test tests/api.test.mjs",
+    "seed": "node src/seed.mjs"
+  }
+}
