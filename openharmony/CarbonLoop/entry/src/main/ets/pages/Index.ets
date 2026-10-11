@@ -8,6 +8,8 @@ import {
   findFactor,
   formatKg
 } from '../model/CarbonModel';
+import { carbonPreferences } from '../entryability/EntryAbility';
+import { loadChallengeJoined, loadRecords, saveChallengeJoined, saveRecords } from '../storage/CarbonStorage';
 
 @Entry
 @Component
@@ -22,6 +24,16 @@ struct Index {
   @State notice: string = '';
   @State challengeJoined: boolean = false;
   @State challengeNotice: string = '';
+
+  aboutToAppear(): void {
+    const savedRecords: CarbonRecord[] | null = loadRecords(carbonPreferences);
+    if (savedRecords === null) {
+      saveRecords(carbonPreferences, this.records);
+    } else {
+      this.records = savedRecords;
+    }
+    this.challengeJoined = loadChallengeJoined(carbonPreferences);
+  }
 
   private getSelectedFactor(): CarbonFactor {
     return findFactor(this.selectedFactorId);
@@ -59,7 +71,24 @@ struct Index {
 
   private joinChallenge(): void {
     this.challengeJoined = true;
+    saveChallengeJoined(carbonPreferences, true);
     this.challengeNotice = '已加入挑战，完成低碳行为后进度会自动更新';
+  }
+
+  private calculateRecordCount(): number {
+    return this.records.length;
+  }
+
+  private hasFirstRecordBadge(): boolean {
+    return this.records.length >= 1;
+  }
+
+  private hasReductionBadge(): boolean {
+    return this.calculateTotalReduction() >= 1;
+  }
+
+  private hasChallengeBadge(): boolean {
+    return this.challengeJoined;
   }
 
   private getPreviewAmount(): number {
@@ -243,6 +272,109 @@ struct Index {
   }
 
   @Builder
+  private badgeCard(icon: string, title: string, description: string, earned: boolean) {
+    Column({ space: 6 }) {
+      Text(icon).fontSize(28).opacity(earned ? 1 : 0.35);
+      Text(title).fontSize(14).fontWeight(FontWeight.Bold).fontColor(earned ? '#123B35' : '#78908A');
+      Text(description).fontSize(11).fontColor(earned ? '#52706A' : '#9AAEA8').maxLines(2);
+      Text(earned ? '已解锁' : '待解锁')
+        .fontSize(11)
+        .fontColor(earned ? '#0F766E' : '#8A9B95')
+        .backgroundColor(earned ? '#E3F2E5' : '#F0F3F1')
+        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+        .borderRadius(8);
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding(12)
+    .layoutWeight(1)
+    .backgroundColor(earned ? '#F1F8E7' : '#F7F9F8')
+    .borderRadius(16);
+  }
+
+  @Builder
+  private profileView() {
+    Scroll() {
+      Column({ space: 16 }) {
+        Column({ space: 8 }) {
+          Text('我的低碳档案').fontSize(14).fontColor('#D9F99D').fontWeight(FontWeight.Bold);
+          Text('低碳行动者').fontSize(26).fontWeight(FontWeight.Bold).fontColor('#FFFFFF');
+          Text('把每一次选择，积累成看得见的改变').fontSize(13).fontColor('#D7EFDF');
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(20)
+        .width('100%')
+        .backgroundColor('#0F766E')
+        .borderRadius(24);
+
+        Row({ space: 10 }) {
+          this.metric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', '已记录的绿色行动');
+          this.metric('碳积分', `${this.calculateTotalPoints()}`, '分', '持续积累中');
+        }
+        .width('100%');
+
+        Column({ space: 10 }) {
+          Text('行动概览').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+          Row() {
+            Column({ space: 4 }) {
+              Text(`${this.calculateRecordCount()}`).fontSize(24).fontWeight(FontWeight.Bold).fontColor('#0F766E');
+              Text('已记录行为').fontSize(12).fontColor('#6B817B');
+            }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+            Column({ space: 4 }) {
+              Text(this.challengeJoined ? '进行中' : '未加入').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#0F766E');
+              Text('校园挑战').fontSize(12).fontColor('#6B817B');
+            }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+          }
+          Text('当前数据保存在本机，重新打开应用后仍会保留。').fontSize(12).fontColor('#7A958E');
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(18)
+        .backgroundColor('#FFFFFF')
+        .borderRadius(20)
+        .width('100%');
+
+        Column({ space: 10 }) {
+          Row() {
+            Text('低碳徽章').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+            Blank();
+            Text('持续行动，解锁更多').fontSize(11).fontColor('#7A958E');
+          }
+          Row({ space: 8 }) {
+            this.badgeCard('🌱', '绿色起点', '完成第一次低碳行为记录', this.hasFirstRecordBadge());
+            this.badgeCard('🌍', '减排新星', '累计减排达到 1 kg CO₂e', this.hasReductionBadge());
+          }
+          Row({ space: 8 }) {
+            this.badgeCard('🏆', '校园挑战者', '加入校园低碳挑战', this.hasChallengeBadge());
+            this.badgeCard('✨', '持续行动', '累计完成 5 次低碳记录', this.records.length >= 5);
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(18)
+        .backgroundColor('#FFFFFF')
+        .borderRadius(20)
+        .width('100%');
+
+        Column({ space: 8 }) {
+          Text('下一步建议').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+          Text(this.challengeJoined ? '继续完成步行或骑行记录，争取达成 15 公里挑战。' : '先加入校园挑战，再记录一次步行或骑行。').fontSize(13).fontColor('#6B817B');
+          Button(this.challengeJoined ? '去记录低碳行为' : '去参加校园挑战')
+            .width('100%')
+            .backgroundColor('#D9F99D')
+            .fontColor('#123B35')
+            .borderRadius(14)
+            .onClick(() => this.currentTab = this.challengeJoined ? 1 : 2);
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(18)
+        .backgroundColor('#F1F8E7')
+        .borderRadius(20)
+        .width('100%');
+      }
+      .padding({ left: 16, right: 16, top: 18, bottom: 24 });
+    }
+    .layoutWeight(1);
+  }
+
+  @Builder
   private recordView() {
     Scroll() {
       Column({ space: 16 }) {
@@ -345,6 +477,7 @@ struct Index {
       createdAt: '刚刚'
     };
     this.records = [record, ...this.records];
+    saveRecords(carbonPreferences, this.records);
     this.notice = `已记录 ${factor.label}，获得 ${record.points} 个积分`;
   }
 
@@ -354,13 +487,16 @@ struct Index {
         this.homeView();
       } else if (this.currentTab === 1) {
         this.recordView();
-      } else {
+      } else if (this.currentTab === 2) {
         this.challengeView();
+      } else {
+        this.profileView();
       }
       Row() {
         Button('首页').layoutWeight(1).backgroundColor(this.currentTab === 0 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 0);
         Button('记录').layoutWeight(1).backgroundColor(this.currentTab === 1 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 1);
         Button('挑战').layoutWeight(1).backgroundColor(this.currentTab === 2 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 2);
+        Button('我的').layoutWeight(1).backgroundColor(this.currentTab === 3 ? '#E3F2E5' : '#FFFFFF').fontColor('#0F766E').onClick(() => this.currentTab = 3);
       }
       .width('100%')
       .padding({ left: 12, right: 12, top: 8, bottom: 12 })
