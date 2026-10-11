@@ -102,11 +102,11 @@ struct Index {
   @Builder
   private pageHeader(section: string, title: string, subtitle: string) {
     Column({ space: 6 }) {
-      Text(section.toUpperCase())
+      Text(section)
         .fontSize(11)
         .fontColor(this.accent)
         .fontWeight(FontWeight.Bold)
-        .letterSpacing(1.2);
+        .letterSpacing(0.5);
       Text(title)
         .fontSize(29)
         .fontWeight(FontWeight.Bold)
@@ -150,7 +150,7 @@ struct Index {
   private homeView() {
     Scroll() {
       Column({ space: 22 }) {
-        this.pageHeader('CarbonLoop / 2026.10', '碳账本', '把每天的绿色选择，留下可查看的记录。');
+        this.pageHeader('碳账本', '今天的低碳记录', '把每天的绿色选择，留下可查看的记录。');
 
         Row() {
           this.flatMetric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', 'CO₂e 估算');
@@ -228,7 +228,7 @@ struct Index {
   private challengeView() {
     Scroll() {
       Column({ space: 22 }) {
-        this.pageHeader('Challenge / Weekly', '步行与骑行周', '用 15 公里的绿色出行，换一枚低碳徽章。');
+        this.pageHeader('校园挑战', '步行与骑行周', '用 15 公里的绿色出行，换一枚低碳徽章。');
 
         Column({ space: 12 }) {
           Row() {
@@ -308,7 +308,7 @@ struct Index {
   private recordView() {
     Scroll() {
       Column({ space: 22 }) {
-        this.pageHeader('Ledger / Add', '记录低碳行为', '选择一项行为，输入数量，账本会自动计算。');
+        this.pageHeader('新增记录', '记录低碳行为', '选择一项行为，输入数量，账本会自动计算。');
 
         Column({ space: 0 }) {
           this.sectionTitle('选择行为', '5 项');
@@ -426,7 +426,7 @@ struct Index {
   private profileView() {
     Scroll() {
       Column({ space: 22 }) {
-        this.pageHeader('Profile / Summary', '我的碳账本', '所有数据都来自你记录的低碳行为。');
+        this.pageHeader('我的', '我的碳账本', '所有数据都来自你记录的低碳行为。');
 
         Row() {
           this.flatMetric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', 'CO₂e 估算');
@@ -563,4 +563,5 @@ struct Index {
       .onClick(() => this.currentTab = tab);
   }
 }
+
 
