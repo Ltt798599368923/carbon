@@ -292,6 +292,47 @@ struct Index {
   }
 
   @Builder
+  private pointDetailRow(record: CarbonRecord) {
+    Row({ space: 10 }) {
+      Text(findFactor(record.factorId).icon).fontSize(20);
+      Column({ space: 3 }) {
+        Text(findFactor(record.factorId).label).fontSize(13).fontWeight(FontWeight.Medium).fontColor('#23443E');
+        Text(record.createdAt).fontSize(11).fontColor('#7A958E');
+      }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+      Text(`+${record.points} 分`).fontSize(14).fontWeight(FontWeight.Bold).fontColor('#A35A17');
+    }
+    .width('100%')
+    .padding({ top: 6, bottom: 6 });
+  }
+
+  @Builder
+  private rankingRow(rank: string, name: string, points: string, isCurrentUser: boolean) {
+    Row({ space: 10 }) {
+      Text(rank).fontSize(16).fontWeight(FontWeight.Bold).fontColor(isCurrentUser ? '#0F766E' : '#7A958E').width(24);
+      Text(name).fontSize(13).fontWeight(isCurrentUser ? FontWeight.Bold : FontWeight.Medium).fontColor('#23443E').layoutWeight(1);
+      Text(`${points} 分`).fontSize(13).fontColor(isCurrentUser ? '#0F766E' : '#52706A');
+    }
+    .width('100%')
+    .padding({ top: 7, bottom: 7 })
+    .backgroundColor(isCurrentUser ? '#F1F8E7' : '#FFFFFF')
+    .borderRadius(10);
+  }
+
+  @Builder
+  private factorInfoCard(factor: CarbonFactor) {
+    Row({ space: 10 }) {
+      Text(factor.icon).fontSize(22);
+      Column({ space: 4 }) {
+        Text(factor.label).fontSize(14).fontWeight(FontWeight.Medium).fontColor('#23443E');
+        Text(`每 1 ${factor.unit} 减少 ${formatKg(factor.reductionKgPerUnit)} kg CO₂e`).fontSize(11).fontColor('#6B817B');
+      }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+      Text(`+${factor.pointsPerUnit} 分/${factor.unit}`).fontSize(11).fontColor('#A35A17');
+    }
+    .width('100%')
+    .padding({ top: 7, bottom: 7 });
+  }
+
+  @Builder
   private profileView() {
     Scroll() {
       Column({ space: 16 }) {
@@ -346,6 +387,39 @@ struct Index {
             this.badgeCard('🏆', '校园挑战者', '加入校园低碳挑战', this.hasChallengeBadge());
             this.badgeCard('✨', '持续行动', '累计完成 5 次低碳记录', this.records.length >= 5);
           }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(18)
+        .backgroundColor('#FFFFFF')
+        .borderRadius(20)
+        .width('100%');
+
+        Column({ space: 10 }) {
+          Row() {
+            Text('积分明细').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+            Blank();
+            Text('每次记录都会获得积分').fontSize(11).fontColor('#7A958E');
+          }
+          ForEach(this.records, (record: CarbonRecord) => {
+            this.pointDetailRow(record);
+          }, (record: CarbonRecord) => `points-${record.id}`);
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(18)
+        .backgroundColor('#FFFFFF')
+        .borderRadius(20)
+        .width('100%');
+
+        Column({ space: 10 }) {
+          Row() {
+            Text('校园排行榜').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+            Blank();
+            Text('本地演示').fontSize(11).fontColor('#7A958E');
+          }
+          this.rankingRow('1', '绿色先锋', '128', false);
+          this.rankingRow('2', '校园减碳队', '96', false);
+          this.rankingRow('3', '低碳行动者', `${this.calculateTotalPoints()}`, true);
+          Text('排行榜为演示数据，后续可接入校园账号和云端数据。').fontSize(11).fontColor('#7A958E');
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
@@ -437,6 +511,24 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(18)
         .backgroundColor('#FFFFFF')
+        .borderRadius(20)
+        .width('100%');
+
+
+        Column({ space: 10 }) {
+          Row() {
+            Text('碳因子说明').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#123B35');
+            Blank();
+            Text('透明计算规则').fontSize(11).fontColor('#7A958E');
+          }
+          Text('以下数值用于校园演示，记录数量 × 对应碳因子 = 预计减排量。').fontSize(12).fontColor('#6B817B');
+          ForEach(CARBON_FACTORS, (factor: CarbonFactor) => {
+            this.factorInfoCard(factor);
+          }, (factor: CarbonFactor) => `factor-${factor.id}`);
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(18)
+        .backgroundColor('#F1F8E7')
         .borderRadius(20)
         .width('100%');
       }
