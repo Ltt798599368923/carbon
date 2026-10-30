@@ -108,7 +108,28 @@ export interface ApiItemEvent {
   label: string;
   note: string;
   locationId?: string | null;
+  actor?: string;
   createdAt: string;
+}
+
+export interface ApiItemAppointment {
+  type: 'delivery' | 'pickup';
+  code: string;
+  stationId: string;
+  stationName: string;
+  slot: string;
+  slotStartsAt: string;
+  expiresAt: string;
+  state: 'active' | 'used' | 'canceled' | 'expired';
+  usedAt?: string | null;
+}
+
+export interface ApiStation {
+  id: string;
+  name: string;
+  address: string;
+  openHours: string;
+  enabled: boolean;
 }
 
 export interface ApiItem {
@@ -122,6 +143,18 @@ export interface ApiItem {
   cycleCount: number;
   reductionKg: number;
   points: number;
+  quantity?: number;
+  conditionLevel?: number | null;
+  verifiedConditionLevel?: number | null;
+  description?: string;
+  imageUris?: string[];
+  transferMethod?: string;
+  workflowStatus: string;
+  workflowStatusLabel: string;
+  appointment?: ApiItemAppointment | null;
+  stationId?: string | null;
+  shelfLocation?: string;
+  verificationRemark?: string;
   events: ApiItemEvent[];
   updatedAt: string;
   createdAt: string;
@@ -141,7 +174,20 @@ export interface RequestPayload {
   itemType?: string;
   weightKg?: number;
   flow?: string;
+  conditionLevel?: number;
+  quantity?: number;
+  description?: string;
+  imageUris?: string[];
+  transferMethod?: string;
   type?: string;
+  stationId?: string;
+  slot?: string;
+  slotStartsAt?: string;
+  code?: string;
+  actualWeightKg?: number;
+  verifiedConditionLevel?: number;
+  shelfLocation?: string;
+  reason?: string;
   note?: string;
 }
 
@@ -171,6 +217,7 @@ interface ApiEnvelope {
   redemption?: ApiRedemption;
   item?: ApiItem;
   items?: ApiItem[];
+  stations?: ApiStation[];
 }
 
 // 模拟器使用 10.0.2.2；真机请改成运行 backend 的电脑局域网 IPv4 地址。
@@ -257,6 +304,16 @@ export class CarbonApiClient {
     return response.items ?? [];
   }
 
+  public async getItemCatalog(): Promise<ApiItem[]> {
+    const response: ApiEnvelope = await this.request('/api/v1/items/catalog', http.RequestMethod.GET);
+    return response.items ?? [];
+  }
+
+  public async getStations(): Promise<ApiStation[]> {
+    const response: ApiEnvelope = await this.request('/api/v1/items/stations', http.RequestMethod.GET);
+    return response.stations ?? [];
+  }
+
   public async createItem(clientItemId: string, title: string, itemType: string, weightKg: number, flow: string): Promise<ApiItem> {
     const response: ApiEnvelope = await this.request('/api/v1/items', http.RequestMethod.POST, {
       clientItemId,
@@ -271,8 +328,48 @@ export class CarbonApiClient {
     return response.item;
   }
 
+  public async approveItem(itemId: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'approve');
+  }
+
+  public async rejectItem(itemId: string, reason: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'reject', { reason });
+  }
+
+  public async bookItem(itemId: string, type: 'delivery' | 'pickup', stationId: string, slot: string, slotStartsAt: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'appointments', { type, stationId, slot, slotStartsAt });
+  }
+
+  public async verifyDelivery(itemId: string, code: string, stationId: string, actualWeightKg: number, verifiedConditionLevel: number): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'verify-delivery', { code, stationId, actualWeightKg, verifiedConditionLevel });
+  }
+
+  public async shelveItem(itemId: string, shelfLocation: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'shelve', { shelfLocation });
+  }
+
+  public async reserveItem(itemId: string, stationId: string, slot: string, slotStartsAt: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'reserve', { stationId, slot, slotStartsAt });
+  }
+
+  public async completeItem(itemId: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'complete');
+  }
+
+  public async scrapItem(itemId: string, reason: string): Promise<ApiItem> {
+    return this.workflowAction(itemId, 'scrap', { reason });
+  }
+
   public async addItemCycleEvent(itemId: string, type: string): Promise<ApiItem> {
     const response: ApiEnvelope = await this.request(`/api/v1/items/${encodeURIComponent(itemId)}/cycle-events`, http.RequestMethod.POST, { type });
+    if (response.item === undefined) {
+      throw new Error('后端没有返回更新后的旧物卡片');
+    }
+    return response.item;
+  }
+
+  private async workflowAction(itemId: string, action: string, payload?: RequestPayload): Promise<ApiItem> {
+    const response: ApiEnvelope = await this.request(`/api/v1/items/${encodeURIComponent(itemId)}/${action}`, http.RequestMethod.POST, payload);
     if (response.item === undefined) {
       throw new Error('后端没有返回更新后的旧物卡片');
     }

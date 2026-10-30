@@ -15,7 +15,7 @@ import { KnowledgeArticle, KNOWLEDGE_ARTICLES, findArticle } from '../model/Know
 import { carbonContext, carbonPreferences } from '../entryability/EntryAbility';
 import { loadBackendToken, loadChallengeJoined, loadDeletedRecordIds, loadDeviceId, loadItems, loadPendingItemCreates, loadPendingItemEvents, loadRecords, PendingItemCreate, PendingItemEvent, saveBackendToken, saveChallengeJoined, saveDeletedRecordIds, saveDeviceId, saveItems, savePendingItemCreates, savePendingItemEvents, saveRecords } from '../storage/CarbonStorage';
 import { createCarbonBackup, createRecordsCsv, mergeCarbonRecords, parseCarbonBackup, readBackupWithPicker, saveTextWithPicker } from '../storage/CarbonExport';
-import { ApiItem, ApiPointsLedgerEntry, ApiRecord, ApiReward, ApiTask, CarbonApiClient } from '../network/ApiClient';
+import { ApiItem, ApiPointsLedgerEntry, ApiRecord, ApiReward, ApiStation, ApiTask, CarbonApiClient } from '../network/ApiClient';
 
 @Entry
 @Component
@@ -37,6 +37,7 @@ struct Index {
   @State cloudPoints: number = 0;
   @State dailyTasks: ApiTask[] = [];
   @State items: ApiItem[] = [];
+  @State stations: ApiStation[] = [];
   @State itemTitle: string = '';
   @State itemType: string = '书籍';
   @State itemWeightText: string = '1';
@@ -112,6 +113,7 @@ struct Index {
         saveRecords(carbonPreferences, this.records);
       }
       await this.refreshItems();
+      await this.refreshStations();
       const dashboard = await this.api.getDashboard();
       this.dailyTasks = dashboard.tasks ?? [];
       this.taskLedger = (dashboard.pointsLedger ?? []).filter((entry: ApiPointsLedgerEntry) => entry.taskId !== undefined);
@@ -148,6 +150,14 @@ struct Index {
       }
     } catch (error) {
       console.error(`CarbonLoop reward catalog skipped: ${error}`);
+    }
+  }
+
+  private async refreshStations(): Promise<void> {
+    try {
+      this.stations = await this.api.getStations();
+    } catch (error) {
+      console.error(`CarbonLoop station sync skipped: ${error}`);
     }
   }
 
@@ -366,6 +376,49 @@ struct Index {
     }
   }
 
+  private nextSlotLabel(): string {
+    const date: Date = new Date(Date.now() + 60 * 60 * 1000);
+    const hour: number = date.getHours();
+    const nextHour: number = (hour + 1) % 24;
+    return `今日 ${hour}:00-${nextHour}:00`;
+  }
+
+  private nextSlotStart(): string {
+    return new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  }
+
+  private async bookDelivery(item: ApiItem): Promise<void> {
+    const station: ApiStation | undefined = this.stations.length > 0 ? this.stations[0] : undefined;
+    if (station === undefined) {
+      this.itemNotice = '暂无可用旧物驿站，请稍后重试。';
+      return;
+    }
+    try {
+      const updated: ApiItem = await this.api.bookItem(item.id, 'delivery', station.id, this.nextSlotLabel(), this.nextSlotStart());
+      this.items = this.items.map((candidate: ApiItem) => candidate.id === updated.id ? updated : candidate);
+      this.itemNotice = `已预约${station.name}投递，请在到站时出示 8 位核销码。`;
+    } catch (error) {
+      this.itemNotice = '预约投递失败，请确认物品已通过核验。';
+      console.error(`CarbonLoop delivery booking skipped: ${error}`);
+    }
+  }
+
+  private async reservePickup(item: ApiItem): Promise<void> {
+    const station: ApiStation | undefined = this.stations.length > 0 ? this.stations[0] : undefined;
+    if (station === undefined) {
+      this.itemNotice = '暂无可用旧物驿站，请稍后重试。';
+      return;
+    }
+    try {
+      const updated: ApiItem = await this.api.reserveItem(item.id, station.id, this.nextSlotLabel(), this.nextSlotStart());
+      this.items = this.items.map((candidate: ApiItem) => candidate.id === updated.id ? updated : candidate);
+      this.itemNotice = `已预约在${station.name}领取，请按预约时间到站。`;
+    } catch (error) {
+      this.itemNotice = '预约领取失败，这件物品可能已被其他同学预约。';
+      console.error(`CarbonLoop pickup booking skipped: ${error}`);
+    }
+  }
+
   private async advanceItem(item: ApiItem, flow: string): Promise<void> {
     if (item.flow === flow) {
       this.itemNotice = `“${item.title}”已经是${this.itemFlowLabel(flow)}状态。`;
@@ -425,6 +478,16 @@ struct Index {
       this.rewardNotice = '奖励兑换失败，请确认网络连接后重试。';
       console.error(`CarbonLoop reward redeem skipped: ${error}`);
     }
+  }
+
+  private workflowActionLabel(item: ApiItem): string {
+    if (item.workflowStatus === 'PENDING') return '等待管理员核验';
+    if (item.workflowStatus === 'APPROVED') return '预约投递';
+    if (item.workflowStatus === 'BOOKED') return '已预约投递';
+    if (item.workflowStatus === 'RECEIVED') return '等待驿站上架';
+    if (item.workflowStatus === 'IN_STOCK') return '预约领取';
+    if (item.workflowStatus === 'RESERVED') return '已预约领取';
+    return item.workflowStatusLabel;
   }
 
   private async joinChallenge(): Promise<void> {
@@ -968,6 +1031,7 @@ struct Index {
         Column({ space: 3 }) {
           Text(item.title).fontSize(15).fontWeight(FontWeight.Bold).fontColor(this.ink);
           Text(`${item.itemType} · ${item.weightKg} kg · ${item.status}`).fontSize(11).fontColor(this.muted);
+          Text(item.workflowStatusLabel).fontSize(11).fontWeight(FontWeight.Medium).fontColor(this.accent);
         }.alignItems(HorizontalAlign.Start).layoutWeight(1);
         Text(`${item.cycleCount} 次`).fontSize(12).fontColor(this.accent);
       }
@@ -985,6 +1049,37 @@ struct Index {
         Text(`最近：${item.events[0].label} · ${item.events[0].createdAt.slice(0, 10)}`)
           .fontSize(11)
           .fontColor(this.muted);
+      }
+      if (item.appointment !== null && item.appointment !== undefined) {
+        Text(`${item.appointment.type === 'delivery' ? '投递' : '领取'} · ${item.appointment.stationName} · ${item.appointment.slot}`)
+          .fontSize(11)
+          .fontColor(this.muted);
+        if (item.appointment.state === 'active') {
+          Text(`核销码 ${item.appointment.code}`)
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#9A6528')
+            .letterSpacing(2);
+        }
+      }
+      if (item.workflowStatus === 'APPROVED') {
+        Button('预约投递')
+          .width('100%')
+          .fontSize(12)
+          .fontColor('#FFFFFF')
+          .backgroundColor(this.accent)
+          .borderRadius(4)
+          .onClick(() => this.bookDelivery(item));
+      } else if (item.workflowStatus === 'IN_STOCK') {
+        Button('预约领取')
+          .width('100%')
+          .fontSize(12)
+          .fontColor('#FFFFFF')
+          .backgroundColor(this.accent)
+          .borderRadius(4)
+          .onClick(() => this.reservePickup(item));
+      } else {
+        Text(this.workflowActionLabel(item)).fontSize(11).fontColor(this.muted);
       }
       Row({ space: 6 }) {
         this.itemEventButton(item, '交换', 'exchange');

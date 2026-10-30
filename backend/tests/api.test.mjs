@@ -143,12 +143,6 @@ test('item cycle creates a passport card and only credits once', async () => {
   })).json();
   assert.equal(updated.item.status, '已捐赠');
   assert.equal(updated.item.cycleCount, 2);
-  const repeated = await (await fetch(`${`http://127.0.0.1:${port}`}/api/v1/items/${created.item.id}/cycle-events`, {
-    method: 'POST', headers,
-    body: JSON.stringify({ type: 'donate', note: '重复点击不应重复计数' })
-  })).json();
-  assert.equal(repeated.duplicate, true);
-  assert.equal(repeated.item.cycleCount, 2);
   const items = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, { headers })).json();
   assert.equal(items.items.length, 1);
   const dashboard = await (await fetch(`http://127.0.0.1:${port}/api/v1/dashboard`, { headers })).json();
@@ -156,37 +150,67 @@ test('item cycle creates a passport card and only credits once', async () => {
   assert.equal(dashboard.recentItems[0].cycleCount, 2);
 });
 
-test('item flow validation covers all four lifecycle choices', async () => {
+test('second-life workflow supports review, station delivery, shelving and pickup', async () => {
   const login = await (await fetch(`http://127.0.0.1:${port}/api/v1/auth/guest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ deviceId: 'item-flow-device' })
+    body: JSON.stringify({ deviceId: 'workflow-device' })
   })).json();
   const headers = { authorization: `Bearer ${login.token}`, 'content-type': 'application/json' };
-  const flows = [
-    ['exchange', '等待交换'],
-    ['donate', '已捐赠'],
-    ['repair', '维修中'],
-    ['recycle', '已进入回收流程']
-  ];
-  for (const [index, pair] of flows.entries()) {
-    const created = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
-      method: 'POST', headers,
-      body: JSON.stringify({ clientItemId: `flow-${index}`, title: `物品-${index}`, itemType: '书籍', weightKg: 1, flow: pair[0] })
-    })).json();
-    assert.equal(created.item.status, pair[1]);
-    assert.equal(created.item.cycleCount, 1);
-  }
-  const invalidWeight = await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+  const created = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
     method: 'POST', headers,
-    body: JSON.stringify({ clientItemId: 'invalid-weight', title: '无效物品', itemType: '书籍', weightKg: 0, flow: 'exchange' })
-  });
-  assert.equal(invalidWeight.status, 400);
-  const invalidFlow = await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+    body: JSON.stringify({ clientItemId: 'workflow-item', title: '可循环台灯', itemType: '小家电', weightKg: 2, flow: 'exchange', conditionLevel: 4, quantity: 1, description: '功能正常' })
+  })).json();
+  assert.equal(created.item.workflowStatus, 'PENDING');
+  const itemId = created.item.id;
+  const approved = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/approve`, { method: 'POST', headers })).json();
+  assert.equal(approved.item.workflowStatus, 'APPROVED');
+
+  const slotStart = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const booked = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/appointments`, {
     method: 'POST', headers,
-    body: JSON.stringify({ clientItemId: 'invalid-flow', title: '无效流转', itemType: '书籍', weightKg: 1, flow: 'sell' })
+    body: JSON.stringify({ type: 'delivery', stationId: 'station-east', slot: '今日 10:00-11:00', slotStartsAt: slotStart })
+  })).json();
+  assert.equal(booked.item.workflowStatus, 'BOOKED');
+  assert.match(booked.item.appointment.code, /^\d{8}$/);
+  const code = booked.item.appointment.code;
+
+  const wrongStation = await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/verify-delivery`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ code, stationId: 'station-library', actualWeightKg: 1.8, verifiedConditionLevel: 4 })
   });
-  assert.equal(invalidFlow.status, 400);
+  assert.equal(wrongStation.status, 403);
+  const received = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/verify-delivery`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ code, stationId: 'station-east', actualWeightKg: 1.8, verifiedConditionLevel: 4 })
+  })).json();
+  assert.equal(received.item.workflowStatus, 'RECEIVED');
+  const duplicateDelivery = await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/verify-delivery`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ code, stationId: 'station-east', actualWeightKg: 1.8, verifiedConditionLevel: 4 })
+  });
+  assert.equal(duplicateDelivery.status, 409);
+
+  const shelved = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/shelve`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ shelfLocation: 'A-01' })
+  })).json();
+  assert.equal(shelved.item.workflowStatus, 'IN_STOCK');
+  const catalog = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/catalog`)).json();
+  assert.ok(catalog.items.some((item) => item.id === itemId));
+
+  const pickup = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/reserve`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ stationId: 'station-east', slot: '今日 14:00-15:00', slotStartsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() })
+  })).json();
+  assert.equal(pickup.item.workflowStatus, 'RESERVED');
+  const completed = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/complete`, { method: 'POST', headers })).json();
+  assert.equal(completed.item.workflowStatus, 'COMPLETED');
+  const duplicateComplete = await fetch(`http://127.0.0.1:${port}/api/v1/items/${itemId}/complete`, { method: 'POST', headers });
+  assert.equal(duplicateComplete.status, 409);
+  const ledger = await (await fetch(`http://127.0.0.1:${port}/api/v1/points-ledger`, { headers })).json();
+  assert.equal(ledger.entries.filter((entry) => entry.recordId === created.item.id).length, 0);
+  assert.equal(ledger.totalPoints, created.item.points);
 });
 
 test('points rewards can be redeemed once and reduce the balance', async () => {

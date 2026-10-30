@@ -202,17 +202,108 @@ function campusOverview() {
 function itemCycleView(item) {
   return {
     ...item,
+    workflowStatus: item.workflowStatus ?? 'PENDING',
+    workflowStatusLabel: item.workflowStatusLabel ?? '待核验',
+    appointment: appointmentView(item.appointment),
     events: [...(item.events ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   };
 }
 
 const ITEM_FLOWS = new Set(['recycle', 'exchange', 'donate', 'repair']);
+const ITEM_WORKFLOW_STATUSES = new Set(['PENDING', 'APPROVED', 'BOOKED', 'RECEIVED', 'IN_STOCK', 'RESERVED', 'COMPLETED', 'SCRAPPED', 'CANCELED', 'REJECTED']);
+const ITEM_APPOINTMENT_CAPACITY = 20;
+const ITEM_WORKFLOW_LABELS = {
+  PENDING: '待核验',
+  APPROVED: '已通过核验',
+  BOOKED: '待投递',
+  RECEIVED: '已收货',
+  IN_STOCK: '在库可领取',
+  RESERVED: '已预约领取',
+  COMPLETED: '已完成流转',
+  SCRAPPED: '已报废处置',
+  CANCELED: '已撤回',
+  REJECTED: '核验不通过'
+};
 const ITEM_STATUSES = {
   recycle: '已进入回收流程',
   exchange: '等待交换',
   donate: '已捐赠',
   repair: '维修中'
 };
+
+const ITEM_STATIONS = [
+  { id: 'station-east', name: '东区旧物驿站', address: '生活区东侧服务点', openHours: '周一至周六 09:00-20:00', enabled: true },
+  { id: 'station-library', name: '图书馆共享驿站', address: '图书馆一层服务台', openHours: '周一至周五 10:00-18:00', enabled: true }
+];
+
+function itemWorkflowLabel(status) {
+  return ITEM_WORKFLOW_LABELS[status] ?? status;
+}
+
+function itemEvent(item, type, label, note, actor = 'CarbonLoop') {
+  const now = new Date().toISOString();
+  item.events = item.events ?? [];
+  item.events.push({ id: `cycle_${randomUUID()}`, type, label, note: String(note ?? '').trim().slice(0, 200), actor, createdAt: now });
+  item.updatedAt = now;
+}
+
+function updateItemWorkflow(item, status, note, actor = 'CarbonLoop') {
+  if (!ITEM_WORKFLOW_STATUSES.has(status)) return false;
+  item.workflowStatus = status;
+  item.workflowStatusLabel = itemWorkflowLabel(status);
+  itemEvent(item, status.toLowerCase(), item.workflowStatusLabel, note, actor);
+  return true;
+}
+
+function nextAppointmentCode(item) {
+  const existing = new Set(store.itemCycles.flatMap((candidate) => candidate.appointment?.code ? [candidate.appointment.code] : []));
+  let code = '';
+  do {
+    code = String(10000000 + Math.floor(Math.random() * 90000000));
+  } while (existing.has(code));
+  return code;
+}
+
+function stationView(station) {
+  return { ...station, enabled: true };
+}
+
+function getStation(stationId) {
+  return ITEM_STATIONS.find((station) => station.id === stationId) ?? null;
+}
+
+function activeAppointmentCount(stationId, slot) {
+  return store.itemCycles.filter((item) => item.appointment?.stationId === stationId && item.appointment?.slot === slot && item.appointment?.state === 'active').length;
+}
+
+function refreshItemAppointment(item) {
+  const appointment = item.appointment;
+  if (!appointment || appointment.state !== 'active' || !appointment.expiresAt) return false;
+  if (Date.parse(appointment.expiresAt) >= Date.now()) return false;
+  appointment.state = 'expired';
+  appointment.usedAt = null;
+  if (appointment.type === 'delivery' && item.workflowStatus === 'BOOKED') updateItemWorkflow(item, 'APPROVED', '投递预约已过期，物品退回可预约状态', 'system');
+  if (appointment.type === 'pickup' && item.workflowStatus === 'RESERVED') updateItemWorkflow(item, 'IN_STOCK', '领取预约已过期，库存已释放', 'system');
+  return true;
+}
+
+function refreshAllItemAppointments() {
+  let changed = false;
+  for (const item of store.itemCycles) changed = refreshItemAppointment(item) || changed;
+  return changed;
+}
+
+function appointmentView(appointment) {
+  if (!appointment) return null;
+  const { bookedByUserId, ...publicAppointment } = appointment;
+  return publicAppointment;
+}
+
+function catalogItemView(item) {
+  const view = itemCycleView(item);
+  const { userId, clientItemId, ...publicItem } = view;
+  return publicItem;
+}
 
 async function handle(req, res) {
   if (req.method === 'OPTIONS') return json(res, 204, {});
@@ -262,6 +353,19 @@ async function handle(req, res) {
       const location = store.locations.find((item) => item.id === locationMatch[1]);
       if (!location) return error(res, 404, '点位不存在', 'LOCATION_NOT_FOUND');
       return json(res, 200, { ok: true, location: locationView(location) });
+    }
+
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/items/stations`) {
+      return json(res, 200, { ok: true, stations: ITEM_STATIONS.map(stationView) });
+    }
+
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/items/catalog`) {
+      if (refreshAllItemAppointments()) await persist();
+      const items = store.itemCycles
+        .filter((item) => ['APPROVED', 'BOOKED', 'RECEIVED', 'IN_STOCK', 'RESERVED', 'COMPLETED'].includes(item.workflowStatus ?? 'PENDING'))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .map(catalogItemView);
+      return json(res, 200, { ok: true, items });
     }
 
     const user = requireUser(req, res);
@@ -355,6 +459,7 @@ async function handle(req, res) {
     }
 
     if (req.method === 'GET' && pathname === `${API_PREFIX}/items`) {
+      if (refreshAllItemAppointments()) await persist();
       const items = store.itemCycles.filter((item) => item.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(itemCycleView);
       return json(res, 200, { ok: true, items });
     }
@@ -365,12 +470,16 @@ async function handle(req, res) {
       const itemType = String(data.itemType ?? '').trim().slice(0, 40);
       const flow = String(data.flow ?? '').trim();
       const weightKg = Number(data.weightKg);
+      const conditionLevel = Number(data.conditionLevel ?? 0);
+      const quantity = Number(data.quantity ?? 1);
       const locationId = typeof data.locationId === 'string' ? data.locationId.slice(0, 100) : '';
       const location = locationId ? store.locations.find((item) => item.id === locationId) : null;
       const clientItemId = typeof data.clientItemId === 'string' ? data.clientItemId.slice(0, 100) : '';
       if (!title || !itemType) return error(res, 400, '物品名称和类型必填');
       if (!ITEM_FLOWS.has(flow)) return error(res, 400, '无效的循环方式');
       if (!Number.isFinite(weightKg) || weightKg <= 0 || weightKg > 1000) return error(res, 400, '物品重量必须大于 0 且不能过大');
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000) return error(res, 400, '物品数量必须为正整数');
+      if (data.conditionLevel !== undefined && (!Number.isInteger(conditionLevel) || conditionLevel < 1 || conditionLevel > 5)) return error(res, 400, '成色需为 1 至 5 档');
       if (locationId && (!location || location.status !== 'open')) return error(res, 400, '无效或不可用的校园点位');
       if (clientItemId) {
         const old = store.itemCycles.find((item) => item.userId === user.id && item.clientItemId === clientItemId);
@@ -389,14 +498,23 @@ async function handle(req, res) {
         title,
         itemType,
         weightKg,
+        quantity,
+        conditionLevel: conditionLevel || null,
+        verifiedConditionLevel: null,
+        description: String(data.description ?? '').trim().slice(0, 300),
+        imageUris: Array.isArray(data.imageUris) ? data.imageUris.filter((uri) => typeof uri === 'string').slice(0, 6) : [],
+        transferMethod: typeof data.transferMethod === 'string' ? data.transferMethod.slice(0, 30) : flow,
         flow,
         status: ITEM_STATUSES[flow],
+        workflowStatus: 'PENDING',
+        workflowStatusLabel: itemWorkflowLabel('PENDING'),
+        appointment: null,
         cycleCount: 1,
         reductionKg,
         points,
         createdAt: now,
         updatedAt: now,
-        events: [{ id: `cycle_${randomUUID()}`, type: flow, label: ITEM_STATUSES[flow], note: String(data.note ?? '').trim().slice(0, 200), locationId: location?.id ?? null, createdAt: now }]
+        events: [{ id: `cycle_${randomUUID()}`, type: 'pending', label: itemWorkflowLabel('PENDING'), note: '已提交管理员核验', actor: user.nickname, locationId: location?.id ?? null, createdAt: now }]
       };
       const action = {
         id: `record_${randomUUID()}`,
@@ -418,6 +536,113 @@ async function handle(req, res) {
       store.pointsLedger.push({ id: `points_${randomUUID()}`, userId: user.id, recordId: action.id, points, reason: `物品循环：${title}`, createdAt: now });
       await persist();
       return json(res, 201, { ok: true, item: itemCycleView(item) });
+    }
+
+    const workflowMatch = pathname.match(new RegExp(`^${API_PREFIX}/items/([^/]+)/(approve|reject|appointments|verify-delivery|shelve|reserve|complete|scrap|cancel)$`));
+    if (req.method === 'POST' && workflowMatch) {
+      const item = store.itemCycles.find((candidate) => candidate.id === workflowMatch[1]);
+      if (!item) return error(res, 404, '物品记录不存在', 'ITEM_NOT_FOUND');
+      const action = workflowMatch[2];
+      const data = await body(req);
+      refreshItemAppointment(item);
+
+      if (action === 'approve') {
+        if (item.workflowStatus !== 'PENDING') return error(res, 409, '仅待核验物品可以通过审核', 'INVALID_ITEM_STATE');
+        updateItemWorkflow(item, 'APPROVED', '内容与图片已完成体验审核', user.nickname);
+        item.verificationRemark = '内容与图片已完成体验审核';
+      } else if (action === 'reject') {
+        const reason = String(data.reason ?? data.note ?? '').trim().slice(0, 200);
+        if (item.workflowStatus !== 'PENDING') return error(res, 409, '仅待核验物品可以驳回', 'INVALID_ITEM_STATE');
+        if (reason.length < 2) return error(res, 400, '请填写驳回意见');
+        item.verificationRemark = reason;
+        updateItemWorkflow(item, 'REJECTED', reason, user.nickname);
+      } else if (action === 'appointments') {
+        const type = data.type === 'pickup' ? 'pickup' : data.type === 'delivery' ? 'delivery' : '';
+        const stationId = String(data.stationId ?? '').trim();
+        const station = getStation(stationId);
+        const slot = String(data.slot ?? '').trim().slice(0, 80);
+        const slotStartsAt = data.slotStartsAt && !Number.isNaN(Date.parse(data.slotStartsAt)) ? new Date(data.slotStartsAt).toISOString() : '';
+        if (!station || !station.enabled) return error(res, 400, '请选择有效的开放驿站');
+        if (!type) return error(res, 400, '预约类型必须为 delivery 或 pickup');
+        if (!slot || !slotStartsAt) return error(res, 400, '预约时段和开始时间必填');
+        if (Date.parse(slotStartsAt) < Date.now()) return error(res, 400, '预约开始时间不能早于当前时间');
+        if (activeAppointmentCount(stationId, slot) >= ITEM_APPOINTMENT_CAPACITY) return error(res, 409, '该时段预约已满', 'APPOINTMENT_FULL');
+        if (type === 'delivery') {
+          if (item.userId !== user.id) return error(res, 403, '只能为自己的物品预约投递', 'FORBIDDEN');
+          if (item.workflowStatus !== 'APPROVED') return error(res, 409, '只有已通过核验的物品可以预约投递', 'INVALID_ITEM_STATE');
+        } else if (item.workflowStatus !== 'IN_STOCK') {
+          return error(res, 409, '这件物品暂不可预约领取', 'INVALID_ITEM_STATE');
+        }
+        const now = new Date().toISOString();
+        item.appointment = { type, code: nextAppointmentCode(item), stationId, stationName: station.name, slot, slotStartsAt, expiresAt: new Date(new Date(slotStartsAt).setHours(23, 59, 59, 999)).toISOString(), state: 'active', usedAt: null, bookedByUserId: user.id };
+        item.stationId = stationId;
+        updateItemWorkflow(item, type === 'delivery' ? 'BOOKED' : 'RESERVED', type === 'delivery' ? '预约投递，已生成 8 位核销码' : '预约领取，库存已锁定', user.nickname);
+        item.updatedAt = now;
+      } else if (action === 'verify-delivery') {
+        const code = String(data.code ?? '').trim();
+        const appointment = item.appointment;
+        const stationId = String(data.stationId ?? '').trim();
+        if (!/^\d{8}$/.test(code) || !appointment || appointment.code !== code || appointment.type !== 'delivery') return error(res, 400, '投递预约码无效');
+        if (appointment.state === 'used') return error(res, 409, '该预约码已核销，不能重复处理', 'APPOINTMENT_USED');
+        if (appointment.state !== 'active') return error(res, 409, '该预约码已取消或过期', 'APPOINTMENT_INACTIVE');
+        if (appointment.stationId !== stationId) return error(res, 403, '该预约不属于当前驿站', 'STATION_MISMATCH');
+        if (item.workflowStatus !== 'BOOKED') return error(res, 409, '物品状态不允许收货核销', 'INVALID_ITEM_STATE');
+        const actualWeightKg = Number(data.actualWeightKg ?? data.weightKg);
+        const verifiedConditionLevel = Number(data.verifiedConditionLevel ?? data.conditionLevel);
+        if (!Number.isFinite(actualWeightKg) || actualWeightKg <= 0) return error(res, 400, '请输入大于 0 的现场复核重量');
+        if (!Number.isInteger(verifiedConditionLevel) || verifiedConditionLevel < 1 || verifiedConditionLevel > 5) return error(res, 400, '请选择 1 至 5 档复核成色');
+        item.actualWeightKg = actualWeightKg;
+        item.verifiedConditionLevel = verifiedConditionLevel;
+        appointment.state = 'used';
+        appointment.usedAt = new Date().toISOString();
+        updateItemWorkflow(item, 'RECEIVED', `扫码收货；复核重量 ${actualWeightKg} kg，成色 ${verifiedConditionLevel} 档`, user.nickname);
+      } else if (action === 'shelve') {
+        const shelfLocation = String(data.shelfLocation ?? data.shelf ?? '').trim().slice(0, 30);
+        if (item.workflowStatus !== 'RECEIVED') return error(res, 409, '仅已收货物品可以上架', 'INVALID_ITEM_STATE');
+        if (!shelfLocation) return error(res, 400, '请填写货位号');
+        if (store.itemCycles.some((candidate) => candidate.id !== item.id && candidate.workflowStatus === 'IN_STOCK' && candidate.stationId === item.stationId && candidate.shelfLocation === shelfLocation)) return error(res, 409, '该货位已被占用', 'SHELF_OCCUPIED');
+        item.shelfLocation = shelfLocation;
+        updateItemWorkflow(item, 'IN_STOCK', `完成上架，货位 ${shelfLocation}`, user.nickname);
+      } else if (action === 'reserve') {
+        if (item.workflowStatus !== 'IN_STOCK') return error(res, 409, '这件物品暂不可预约领取', 'INVALID_ITEM_STATE');
+        const station = getStation(String(data.stationId ?? item.stationId));
+        const slot = String(data.slot ?? '').trim().slice(0, 80);
+        const slotStartsAt = data.slotStartsAt && !Number.isNaN(Date.parse(data.slotStartsAt)) ? new Date(data.slotStartsAt).toISOString() : '';
+        if (!station || !slot || !slotStartsAt) return error(res, 400, '领取驿站和预约时段必填');
+        if (Date.parse(slotStartsAt) < Date.now()) return error(res, 400, '预约开始时间不能早于当前时间');
+        if (activeAppointmentCount(station.id, slot) >= ITEM_APPOINTMENT_CAPACITY) return error(res, 409, '该时段预约已满', 'APPOINTMENT_FULL');
+        item.stationId = station.id;
+        item.appointment = { type: 'pickup', code: nextAppointmentCode(item), stationId: station.id, stationName: station.name, slot, slotStartsAt, expiresAt: new Date(new Date(slotStartsAt).setHours(23, 59, 59, 999)).toISOString(), state: 'active', usedAt: null, bookedByUserId: user.id };
+        updateItemWorkflow(item, 'RESERVED', '预约领取，库存已锁定', user.nickname);
+      } else if (action === 'complete') {
+        const appointment = item.appointment;
+        if (item.workflowStatus !== 'RESERVED' || !appointment || appointment.type !== 'pickup') return error(res, 409, '物品状态不允许领取核销', 'INVALID_ITEM_STATE');
+        const code = String(data.code ?? '').trim();
+        const operatorMode = code.length > 0;
+        if (operatorMode) {
+          if (code !== appointment.code) return error(res, 400, '领取预约码无效');
+          if (appointment.stationId !== String(data.stationId ?? '').trim()) return error(res, 403, '该预约不属于当前驿站', 'STATION_MISMATCH');
+        } else if (appointment.bookedByUserId !== user.id) {
+          return error(res, 403, '只有预约人或驿站操作员可以完成领取', 'FORBIDDEN');
+        }
+        if (appointment.state === 'used') return error(res, 409, '该领取预约已完成，不能重复处理', 'APPOINTMENT_USED');
+        if (appointment.state !== 'active') return error(res, 409, '该领取预约已取消或过期', 'APPOINTMENT_INACTIVE');
+        appointment.state = 'used';
+        appointment.usedAt = new Date().toISOString();
+        updateItemWorkflow(item, 'COMPLETED', '预约领取核销完成', user.nickname);
+      } else if (action === 'scrap') {
+        const reason = String(data.reason ?? data.note ?? '').trim().slice(0, 200);
+        if (item.workflowStatus !== 'RECEIVED') return error(res, 409, '仅已收货物品可以报废处置', 'INVALID_ITEM_STATE');
+        if (reason.length < 2) return error(res, 400, '报废原因必填');
+        item.scrapReason = reason;
+        updateItemWorkflow(item, 'SCRAPPED', `报废处置：${reason}`, user.nickname);
+      } else if (action === 'cancel') {
+        if (!['PENDING', 'APPROVED', 'BOOKED', 'RESERVED'].includes(item.workflowStatus)) return error(res, 409, '当前状态不可撤回', 'INVALID_ITEM_STATE');
+        if (item.appointment?.state === 'active') item.appointment.state = 'canceled';
+        updateItemWorkflow(item, item.workflowStatus === 'RESERVED' ? 'IN_STOCK' : 'CANCELED', '用户主动撤回或取消预约', user.nickname);
+      }
+      await persist();
+      return json(res, 200, { ok: true, item: itemCycleView(item) });
     }
 
     const itemEventMatch = pathname.match(new RegExp(`^${API_PREFIX}/items/([^/]+)/cycle-events$`));
