@@ -25,7 +25,7 @@ export interface PendingItemEvent {
 }
 
 export function loadRecords(store: preferences.Preferences | null): CarbonRecord[] | null {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return null;
   }
   const value: preferences.ValueType = store.getSync(RECORDS_KEY, '');
@@ -87,7 +87,7 @@ export function updateRecordSyncStatus(store: preferences.Preferences | null, re
 }
 
 export function saveRecords(store: preferences.Preferences | null, records: CarbonRecord[]): void {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return;
   }
   store.putSync(RECORDS_KEY, JSON.stringify(records));
@@ -97,7 +97,7 @@ export function saveRecords(store: preferences.Preferences | null, records: Carb
 }
 
 export function loadDeletedRecordIds(store: preferences.Preferences | null): string[] {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return [];
   }
   const value: preferences.ValueType = store.getSync(DELETED_RECORDS_KEY, '[]');
@@ -113,7 +113,7 @@ export function loadDeletedRecordIds(store: preferences.Preferences | null): str
 }
 
 export function saveDeletedRecordIds(store: preferences.Preferences | null, ids: string[]): void {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return;
   }
   store.putSync(DELETED_RECORDS_KEY, JSON.stringify(ids));
@@ -202,7 +202,7 @@ export function savePendingItemEvents(store: preferences.Preferences | null, que
 }
 
 export function loadChallengeJoined(store: preferences.Preferences | null): boolean {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return false;
   }
   const value: preferences.ValueType = store.getSync(CHALLENGE_KEY, false);
@@ -210,7 +210,7 @@ export function loadChallengeJoined(store: preferences.Preferences | null): bool
 }
 
 export function saveChallengeJoined(store: preferences.Preferences | null, joined: boolean): void {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return;
   }
   store.putSync(CHALLENGE_KEY, joined);
@@ -220,7 +220,7 @@ export function saveChallengeJoined(store: preferences.Preferences | null, joine
 }
 
 export function loadDeviceId(store: preferences.Preferences | null): string | null {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return null;
   }
   const value: preferences.ValueType = store.getSync(DEVICE_ID_KEY, '');
@@ -228,7 +228,7 @@ export function loadDeviceId(store: preferences.Preferences | null): string | nu
 }
 
 export function saveDeviceId(store: preferences.Preferences | null, deviceId: string): void {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return;
   }
   store.putSync(DEVICE_ID_KEY, deviceId);
@@ -238,7 +238,7 @@ export function saveDeviceId(store: preferences.Preferences | null, deviceId: st
 }
 
 export function loadBackendToken(store: preferences.Preferences | null): string | null {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return null;
   }
   const value: preferences.ValueType = store.getSync(TOKEN_KEY, '');
@@ -246,7 +246,7 @@ export function loadBackendToken(store: preferences.Preferences | null): string 
 }
 
 export function saveBackendToken(store: preferences.Preferences | null, token: string): void {
-  if (store === null) {
+  if (store === null || store === undefined) {
     return;
   }
   store.putSync(TOKEN_KEY, token);
