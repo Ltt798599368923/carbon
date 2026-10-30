@@ -193,6 +193,17 @@ struct Index {
     return total;
   }
 
+  private calculateTodayReduction(): number {
+    const today: string = this.todayDateText();
+    let total: number = 0;
+    for (const item of this.records) {
+      if (item.occurredAt.slice(0, 10) === today) {
+        total += item.reductionKg;
+      }
+    }
+    return total;
+  }
+
   private calculateTotalPoints(): number {
     return this.backendStatus === '云端已连接' ? this.cloudPoints : this.calculateLocalPoints();
   }
@@ -887,15 +898,55 @@ struct Index {
   private homeView() {
     Scroll() {
       Column({ space: 16 }) {
-        this.pageHeader('碳账本', '今天的低碳记录', '把每天的绿色选择，留下可查看的记录。');
+        this.pageHeader('今日低碳状态', '让每一次绿色选择都被看见', '记录行为、看见变化，和校园伙伴一起完成低碳挑战。');
 
         Row() {
-          this.flatMetric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', 'CO₂e 估算');
+          this.flatMetric('今日减排', formatKg(this.calculateTodayReduction()), 'kg', 'CO₂e 估算');
+          Divider().vertical(true).height(58).color(this.line);
+          this.flatMetric('累计减排', formatKg(this.calculateTotalReduction()), 'kg', `${this.records.length} 笔低碳记录`);
           Divider().vertical(true).height(58).color(this.line);
           this.flatMetric('碳积分', `${this.calculateTotalPoints()}`, '分', '持续积累');
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 });
+
+        Column({ space: 10 }) {
+          this.sectionTitle('校园碳循环地图', '今天，校园哪里正在变绿');
+          Row({ space: 12 }) {
+            Column() {
+              Text('低碳点位').fontSize(12).fontColor(this.muted);
+              Text(`${this.stations.length > 0 ? this.stations.length : 4}`).fontSize(27).fontWeight(FontWeight.Bold).fontColor(this.accent);
+              Text('个开放行动点').fontSize(11).fontColor(this.muted);
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1);
+            Column() {
+              Text('校园行动').fontSize(12).fontColor(this.muted);
+              Text(`${this.records.length}`).fontSize(27).fontWeight(FontWeight.Bold).fontColor(this.accent);
+              Text('次记录').fontSize(11).fontColor(this.muted);
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1);
+            Button('查看地图 →')
+              .fontSize(12)
+              .fontColor(this.accent)
+              .backgroundColor(this.mint)
+              .borderRadius(8)
+              .onClick(() => this.currentTab = 1);
+          }
+          .width('100%')
+          .padding(12)
+          .backgroundColor('#173A3A');
+          Text('图书馆    生活区        体育场    南门')
+            .fontSize(11)
+            .fontColor(this.muted)
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .padding({ top: 8, bottom: 4 });
+        }
+        .padding(18)
+        .backgroundColor(this.panel)
+        .borderRadius(20);
 
         Column({ space: 0 }) {
           this.sectionTitle('今日任务', this.getDailyTaskProgress() >= 1 ? '已完成' : '可完成');
@@ -959,7 +1010,7 @@ struct Index {
               .fontColor(this.accent)
               .backgroundColor(this.mint)
               .borderRadius(4)
-              .onClick(() => this.currentTab = 1);
+              .onClick(() => this.currentTab = 2);
           }
           .width('100%')
           .padding({ top: 12, bottom: 15 })
@@ -985,10 +1036,91 @@ struct Index {
         .padding(18)
         .backgroundColor(this.panel)
         .borderRadius(20);
+
+        Column({ space: 0 }) {
+          this.sectionTitle('今日减排指南', '推荐行动');
+          Row({ space: 12 }) {
+            Text('✦').fontSize(22).fontColor('#F2BF75').width(32).height(32).textAlign(TextAlign.Center);
+            Column({ space: 4 }) {
+              Text('把一次性餐具换成自带餐具').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink);
+              Text('完成一次替换，预计减少约 0.06 kg 碳排放，并获得 6 个积分。').fontSize(11).fontColor(this.muted);
+            }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+            Button('去完成')
+              .fontSize(11)
+              .fontColor(this.accent)
+              .backgroundColor(this.mint)
+              .borderRadius(8)
+              .onClick(() => this.openRecord('reusable', '1'));
+          }
+          .width('100%');
+        }
+        .padding(18)
+        .backgroundColor('#3C3526')
+        .borderRadius(20);
       }
       .padding({ left: 16, right: 16, top: 16, bottom: 24 });
     }
     .layoutWeight(1);
+  }
+
+  @Builder
+  private mapView() {
+    Scroll() {
+      Column({ space: 16 }) {
+        this.pageHeader('去校园里做点什么', '校园碳循环地图', '找到离你最近的低碳点位，完成一次行动，让校园地图亮起一盏绿灯。');
+
+        Column({ space: 12 }) {
+          this.sectionTitle('河南财经政法大学', '低碳行动点位');
+          Row({ space: 8 }) {
+            Column({ space: 16 }) {
+              Text('图书馆').fontSize(12).fontColor('#17443D').fontWeight(FontWeight.Bold).backgroundColor('#9DE4BD').padding(10).borderRadius(10);
+              Text('生活区').fontSize(12).fontColor('#17443D').fontWeight(FontWeight.Bold).backgroundColor('#8ED9D0').padding(10).borderRadius(10);
+            }.layoutWeight(1);
+            Column({ space: 16 }) {
+              Text('体育场').fontSize(12).fontColor('#17443D').fontWeight(FontWeight.Bold).backgroundColor('#F2BF75').padding(10).borderRadius(10);
+              Text('南门').fontSize(12).fontColor('#17443D').fontWeight(FontWeight.Bold).backgroundColor('#9DE4BD').padding(10).borderRadius(10);
+            }.layoutWeight(1);
+          }
+          .width('100%')
+          .padding(24)
+          .backgroundColor('#DCECDF')
+          .borderRadius(14);
+          Text('地图点位用于展示校园行动入口；后续可接入真实校园地图与定位。')
+            .fontSize(11)
+            .fontColor(this.muted);
+        }
+        .padding(18)
+        .backgroundColor(this.panel)
+        .borderRadius(20);
+
+        Column({ space: 8 }) {
+          this.sectionTitle('点位列表', '可参与');
+          this.mapLocationRow('循环驿站', '旧物交换、捐赠与回收', '循环');
+          this.mapLocationRow('校园生活区', '减少一次性用品', '减塑');
+          this.mapLocationRow('校园南门', '步行与骑行出行', '出行');
+        }
+        .padding(18)
+        .backgroundColor(this.panel)
+        .borderRadius(20);
+      }
+      .padding({ left: 16, right: 16, top: 16, bottom: 24 });
+    }
+    .layoutWeight(1);
+  }
+
+  @Builder
+  private mapLocationRow(title: string, description: string, label: string) {
+    Row({ space: 12 }) {
+      Text('●').fontSize(18).fontColor(this.accent).width(26);
+      Column({ space: 3 }) {
+        Text(title).fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.ink);
+        Text(description).fontSize(11).fontColor(this.muted);
+      }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+      Text(label).fontSize(11).fontColor(this.accent).backgroundColor(this.mint).padding({ left: 8, right: 8, top: 5, bottom: 5 }).borderRadius(8);
+    }
+    .width('100%')
+    .padding({ top: 10, bottom: 10 })
+    .border({ width: { bottom: 1 }, color: this.line });
   }
 
   @Builder
@@ -1986,7 +2118,7 @@ struct Index {
       if (this.currentTab === 0) {
         this.homeView();
       } else if (this.currentTab === 1) {
-        this.historyView();
+        this.mapView();
       } else if (this.currentTab === 2) {
         this.recordView();
       } else if (this.currentTab === 3) {
@@ -2000,6 +2132,7 @@ struct Index {
       }
       Row() {
         this.tabButton('首页', 0);
+        this.tabButton('地图', 1);
         this.tabButton('记录', 2);
         this.tabButton('挑战', 3);
         this.tabButton('我的', 5);
