@@ -8,6 +8,9 @@ export interface ApiFactor {
   reductionKgPerUnit: number;
   pointsPerUnit: number;
   version: string;
+  source?: string;
+  baseline?: string;
+  calculationStatus?: 'estimated_demo' | 'behavior_only';
 }
 
 export interface ApiRecord {
@@ -20,6 +23,32 @@ export interface ApiRecord {
   reductionKg: number;
   points: number;
   occurredAt: string;
+  createdAt: string;
+  verificationStatus?: 'self_reported' | 'location_verified';
+  locationId?: string | null;
+}
+
+export interface ApiTask {
+  id: string;
+  name: string;
+  description: string;
+  factorIds: string[];
+  target: number;
+  unit: string;
+  rewardPoints: number;
+  period: string;
+  day: string;
+  progress: number;
+  completed: boolean;
+}
+
+export interface ApiPointsLedgerEntry {
+  id: string;
+  recordId?: string;
+  taskId?: string;
+  taskDate?: string;
+  points: number;
+  reason: string;
   createdAt: string;
 }
 
@@ -34,6 +63,9 @@ export interface DashboardSummary {
   totalReductionKg: number;
   totalPoints: number;
   recordCount: number;
+  participantCount?: number;
+  actionCount?: number;
+  activeLocationCount?: number;
 }
 
 export interface ApiChallenge {
@@ -48,6 +80,31 @@ export interface ApiChallenge {
   completed: boolean;
 }
 
+export interface ApiItemEvent {
+  id: string;
+  type: string;
+  label: string;
+  note: string;
+  locationId?: string | null;
+  createdAt: string;
+}
+
+export interface ApiItem {
+  id: string;
+  clientItemId: string;
+  title: string;
+  itemType: string;
+  weightKg: number;
+  flow: string;
+  status: string;
+  cycleCount: number;
+  reductionKg: number;
+  points: number;
+  events: ApiItemEvent[];
+  updatedAt: string;
+  createdAt: string;
+}
+
 export interface RequestPayload {
   deviceId?: string;
   nickname?: string;
@@ -56,6 +113,14 @@ export interface RequestPayload {
   factorId?: string;
   amount?: number;
   occurredAt?: string;
+  locationId?: string;
+  clientItemId?: string;
+  title?: string;
+  itemType?: string;
+  weightKg?: number;
+  flow?: string;
+  type?: string;
+  note?: string;
 }
 
 interface RequestHeaders {
@@ -75,6 +140,10 @@ interface ApiEnvelope {
   summary?: DashboardSummary;
   challenges?: ApiChallenge[];
   recentRecords?: ApiRecord[];
+  tasks?: ApiTask[];
+  pointsLedger?: ApiPointsLedgerEntry[];
+  item?: ApiItem;
+  items?: ApiItem[];
 }
 
 // 模拟器使用 10.0.2.2；真机请改成运行 backend 的电脑局域网 IPv4 地址。
@@ -96,12 +165,13 @@ export class CarbonApiClient {
     return response.factors ?? [];
   }
 
-  public async createRecord(clientRecordId: string, factorId: string, amount: number, occurredAt: string): Promise<ApiRecord> {
+  public async createRecord(clientRecordId: string, factorId: string, amount: number, occurredAt: string, locationId?: string): Promise<ApiRecord> {
     const response: ApiEnvelope = await this.request('/api/v1/records', http.RequestMethod.POST, {
       clientRecordId,
       factorId,
       amount,
-      occurredAt
+      occurredAt,
+      locationId
     });
     if (response.record === undefined) {
       throw new Error('后端没有返回记录');
@@ -118,12 +188,60 @@ export class CarbonApiClient {
     return response.records ?? [];
   }
 
+  public async deleteRecord(recordId: string): Promise<void> {
+    await this.request(`/api/v1/records/${encodeURIComponent(recordId)}`, http.RequestMethod.DELETE);
+  }
+
+  public async updateRecord(recordId: string, factorId: string, amount: number, occurredAt: string): Promise<ApiRecord> {
+    const response: ApiEnvelope = await this.request(`/api/v1/records/${encodeURIComponent(recordId)}`, http.RequestMethod.PUT, {
+      factorId,
+      amount,
+      occurredAt
+    });
+    if (response.record === undefined) {
+      throw new Error('后端没有返回更新后的记录');
+    }
+    return response.record;
+  }
+
+  public async getTasks(): Promise<ApiTask[]> {
+    const response: ApiEnvelope = await this.request('/api/v1/tasks', http.RequestMethod.GET);
+    return response.tasks ?? [];
+  }
+
   public async joinChallenge(challengeId: string): Promise<ApiChallenge> {
     const response: ApiEnvelope = await this.request(`/api/v1/challenges/${challengeId}/join`, http.RequestMethod.POST);
     if (response.challenge === undefined) {
       throw new Error('后端没有返回挑战');
     }
     return response.challenge;
+  }
+
+  public async getItems(): Promise<ApiItem[]> {
+    const response: ApiEnvelope = await this.request('/api/v1/items', http.RequestMethod.GET);
+    return response.items ?? [];
+  }
+
+  public async createItem(clientItemId: string, title: string, itemType: string, weightKg: number, flow: string): Promise<ApiItem> {
+    const response: ApiEnvelope = await this.request('/api/v1/items', http.RequestMethod.POST, {
+      clientItemId,
+      title,
+      itemType,
+      weightKg,
+      flow
+    });
+    if (response.item === undefined) {
+      throw new Error('后端没有返回旧物卡片');
+    }
+    return response.item;
+  }
+
+  public async addItemCycleEvent(itemId: string, type: string): Promise<ApiItem> {
+    const response: ApiEnvelope = await this.request(`/api/v1/items/${encodeURIComponent(itemId)}/cycle-events`, http.RequestMethod.POST, { type });
+    if (response.item === undefined) {
+      throw new Error('后端没有返回更新后的旧物卡片');
+    }
+    return response.item;
   }
 
   private async request(path: string, method: http.RequestMethod, payload?: RequestPayload): Promise<ApiEnvelope> {

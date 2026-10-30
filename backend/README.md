@@ -11,13 +11,30 @@ npm start
 
 默认监听 `0.0.0.0:8787`。
 
+生产环境至少要配置随机的 Token 密钥；Web 客户端跨域地址可按部署域名限制：
+
+```bash
+CARBON_TOKEN_SECRET='replace-with-a-long-random-secret' \
+CARBON_ALLOWED_ORIGIN='https://your-campus.example' \
+npm start
+```
+
+本地开发不设置时会使用开发默认值，禁止把该默认值用于公网部署。
+
 ```text
 GET  http://127.0.0.1:8787/health
 POST http://127.0.0.1:8787/api/v1/auth/guest
 GET  http://127.0.0.1:8787/api/v1/factors
+GET  http://127.0.0.1:8787/api/v1/campus/overview
+GET  http://127.0.0.1:8787/api/v1/locations
+GET  http://127.0.0.1:8787/api/v1/teams
+POST http://127.0.0.1:8787/api/v1/actions
+GET  http://127.0.0.1:8787/api/v1/items
+POST http://127.0.0.1:8787/api/v1/items
+POST http://127.0.0.1:8787/api/v1/items/:id/cycle-events
 ```
 
-数据持久化在 `backend/data/store.json`。这个实现用于比赛开发和现场演示，后续部署到服务器时可以把存储层替换为 PostgreSQL，不需要改变 API 合同。
+数据持久化在 `backend/data/store.json`，写入采用临时文件替换。这个实现用于比赛开发和现场演示，后续部署到服务器时可以把存储层替换为 PostgreSQL，不需要改变 API 合同。
 
 ## 闭环原则
 
@@ -26,6 +43,15 @@ GET  http://127.0.0.1:8787/api/v1/factors
 3. 每次积分都有 `pointsLedger` 流水。
 4. 挑战进度从已保存记录实时汇总，不依赖前端传入的进度。
 5. 因子带有版本号，后续可以接入来源和后台审核。
+6. `GET /api/v1/tasks` 和 `GET /api/v1/points-ledger` 提供任务进度与积分流水；记录支持 `PATCH/DELETE /api/v1/records/:id`，撤销会回算任务奖励。
+
+## 校园碳循环
+
+本地演示数据包含河南财经政法大学示范校园、5 个低碳点位和体验宿舍 302。`POST /api/v1/actions` 支持 `locationId` 和 `clientActionId`；关联开放点位的行动标记为 `location_verified`，不关联点位的自报行为标记为 `self_reported`。
+
+`POST /api/v1/items` 创建物品第二人生卡片。首次登记按回收因子生成一次行动和积分；`POST /api/v1/items/:id/cycle-events` 只追加交换、捐赠、维修或回收事件，不重复增加积分。当前物品重量和减排量用于 MVP 演示，正式活动启用前必须核实因子来源和回收口径。
+
+Web 客户端会把网络失败的行动保存在当前浏览器的本地待同步队列，恢复联网后用稳定的 `clientActionId` 自动重试。清理浏览器站点数据会删除尚未同步的本地队列。
 
 ## 鸿蒙真机连接
 

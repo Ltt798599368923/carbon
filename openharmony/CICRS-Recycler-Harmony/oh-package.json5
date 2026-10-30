@@ -1,0 +1,7 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "cicrs-recycler",
+  "version": "1.0.0",
+  "description": "CICRS 青碳汇回收员端 HarmonyOS application",
+  "dependencies": {}
+}

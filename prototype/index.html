@@ -37,6 +37,11 @@
         </div>
         <div class="metric-grid" id="metricGrid"></div>
 
+        <section class="panel map-teaser">
+          <div class="panel-heading"><div><p class="eyebrow">校园碳循环地图</p><h2>今天，校园哪里正在变绿</h2></div><button class="text-button" data-go="map">查看地图 →</button></div>
+          <div class="map-teaser-body"><div class="campus-mini-map" id="campusMiniMap" aria-label="校园低碳点位预览"></div><div class="campus-overview" id="campusOverview"><p class="empty-state">正在读取校园行动数据…</p></div></div>
+        </section>
+
         <div class="content-grid">
           <section class="panel chart-panel">
             <div class="panel-heading"><div><p class="eyebrow">本周趋势</p><h2>减排量变化</h2></div><span class="trend-badge">↑ 18.6%</span></div>
@@ -56,6 +61,12 @@
         </section>
       </section>
 
+      <section class="view" data-view="map">
+        <div class="page-heading"><p class="eyebrow">去校园里做点什么</p><h1>校园碳循环地图</h1><p>找到离你最近的低碳点位，完成一次行动，让校园地图亮起一盏绿灯。</p></div>
+        <section class="panel map-panel"><div class="map-toolbar"><div><p class="eyebrow">河南财经政法大学</p><h2>低碳行动点位</h2></div><div class="map-filters" id="locationFilters"><button class="filter-button active" data-location-filter="all">全部</button><button class="filter-button" data-location-filter="recycle">循环</button><button class="filter-button" data-location-filter="mobility">出行</button><button class="filter-button" data-location-filter="reuse">减塑</button></div></div><div class="campus-map" id="campusMap" aria-label="校园碳循环地图"></div></section>
+        <section class="location-list" id="locationList"></section>
+      </section>
+
       <section class="view" data-view="record">
         <div class="page-heading"><p class="eyebrow">记录低碳行为</p><h1>把今天的绿色选择记下来</h1><p>每一笔记录都会进入你的碳账本，生成可解释的减排结果。</p></div>
         <section class="panel record-form-panel">
@@ -67,6 +78,8 @@
               <option value="recycle">旧物回收</option>
               <option value="energy">节约用电</option>
               <option value="reusable">减少一次性用品</option>
+              <option value="water">节约用水</option>
+              <option value="meal">光盘行动</option>
             </select>
             <div class="field-row"><div><label class="field-label" for="behaviorAmount">数量</label><input id="behaviorAmount" class="field-control" type="number" min="0.1" step="0.1" value="3" /></div><div><label class="field-label" for="behaviorUnit">单位</label><input id="behaviorUnit" class="field-control muted-input" value="公里" readonly /></div></div>
             <div class="calculation-preview"><span>预计减排</span><strong id="calculatedReduction">0.60 kg CO₂e</strong><span class="preview-points" id="calculatedPoints">+6 积分</span></div>
@@ -86,17 +99,19 @@
         <div class="profile-banner"><div class="profile-avatar">林</div><div><p class="eyebrow">我的 CarbonLoop</p><h1>林同学</h1><p>河南财经政法大学 · 计算机学院</p></div><span class="level-tag">Lv. 3 绿色行动者</span></div>
         <div class="metric-grid profile-metrics" id="profileMetrics"></div>
         <section class="panel achievement-panel"><div class="panel-heading"><div><p class="eyebrow">成长记录</p><h2>我的徽章</h2></div></div><div class="badge-grid"><div class="badge-item earned"><span>♻</span><b>回收新星</b><small>完成 5 次回收</small></div><div class="badge-item earned"><span>🚲</span><b>绿色出行</b><small>累计骑行 20 公里</small></div><div class="badge-item"><span>⚡</span><b>节能达人</b><small>完成 10 次节电</small></div><div class="badge-item"><span>🌱</span><b>校园先锋</b><small>参与 3 个挑战</small></div></div></section>
+        <section class="panel passport-panel"><div class="panel-heading"><div><p class="eyebrow">物品循环</p><h2>我的第二人生卡片</h2></div><span class="passport-hint">让物品继续被使用</span></div><form id="itemForm" class="item-form"><div class="item-form-grid"><div><label class="field-label" for="itemTitle">物品名称</label><input id="itemTitle" class="field-control" placeholder="例如：大一教材" maxlength="80" required /></div><div><label class="field-label" for="itemType">物品类型</label><select id="itemType" class="field-control"><option value="书籍">书籍</option><option value="衣物">衣物</option><option value="小家电">小家电</option><option value="生活用品">生活用品</option></select></div><div><label class="field-label" for="itemWeight">估算重量（kg）</label><input id="itemWeight" class="field-control" type="number" min="0.1" step="0.1" value="1" required /></div><div><label class="field-label" for="itemFlow">当前去向</label><select id="itemFlow" class="field-control"><option value="exchange">二手交换</option><option value="donate">捐赠</option><option value="repair">维修再用</option><option value="recycle">回收</option></select></div><div class="item-location-field"><label class="field-label" for="itemLocation">关联校园点位</label><select id="itemLocation" class="field-control"><option value="">不关联点位</option></select></div></div><div class="item-form-footer"><span>首次登记会生成估算减排和积分，后续流转不会重复计分。</span><button class="primary-button item-submit" type="submit">生成第二人生卡片</button></div></form><div class="item-card-list" id="itemCardList"></div></section>
       </section>
     </main>
 
     <nav class="bottom-nav" aria-label="主导航">
       <button class="nav-item active" data-go="home"><span>⌂</span><small>首页</small></button>
+      <button class="nav-item" data-go="map"><span>⌖</span><small>地图</small></button>
       <button class="nav-item" data-go="record"><span>＋</span><small>记录</small></button>
       <button class="nav-item" data-go="challenges"><span>♧</span><small>挑战</small></button>
       <button class="nav-item" data-go="profile"><span>◎</span><small>我的</small></button>
     </nav>
     <div class="toast" id="toast" role="status"></div>
   </div>
-  <script src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

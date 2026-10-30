@@ -18,9 +18,10 @@ test('all demo factors have the fields required by the MVP', () => {
     assert.ok(factor.unit);
     assert.equal(typeof factor.reductionKgPerUnit, 'number');
     assert.equal(typeof factor.pointsPerUnit, 'number');
-    assert.ok(factor.reductionKgPerUnit > 0);
+    assert.ok(factor.reductionKgPerUnit >= 0);
     assert.ok(factor.pointsPerUnit > 0);
   }
+  assert.equal(factors.find((factor) => factor.id === 'water').calculationStatus, 'behavior_only');
 });
 
 test('walking 3 km calculates the product demo result', () => {

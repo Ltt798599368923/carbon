@@ -7,7 +7,9 @@ export async function loadFactors() {
   const source = JSON.parse(await readFile(FACTORS_PATH, 'utf8'));
   return source.factors.map((factor) => ({
     ...factor,
-    source: 'CarbonLoop data/emission-factors.json',
+    source: factor.source ?? 'CarbonLoop data/emission-factors.json',
+    baseline: factor.baseline ?? '待补充比较基准',
+    calculationStatus: factor.calculationStatus ?? 'estimated_demo',
     version: source.version
   }));
 }

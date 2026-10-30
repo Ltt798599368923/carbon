@@ -1,0 +1,7 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "cicrs-student",
+  "version": "1.0.0",
+  "description": "CICRS 青碳汇学生端 HarmonyOS application",
+  "dependencies": {}
+}

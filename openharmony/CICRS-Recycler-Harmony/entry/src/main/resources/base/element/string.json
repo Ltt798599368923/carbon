@@ -1,0 +1,7 @@
+{
+  "string": [
+    { "name": "app_name", "value": "青碳汇·回收员端" },
+    { "name": "module_desc", "value": "校园旧物碳普惠循环系统" },
+    { "name": "ability_desc", "value": "青碳汇鸿蒙回收员端" }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "basePointsPerKg": 10,
+    "treeAbsorptionKgPerYear": 18.3,
+    "maxPendingItems": 10,
+    "appointmentCapacity": 20
+  },
+  "conditionMultipliers": [1.2, 1.1, 1.0, 0.8, 0.5],
+  "transferMultipliers": [1.2, 1.0, 0.8],
+  "conditions": ["全新未拆封", "几乎全新", "轻微使用痕迹", "明显使用痕迹", "破损但可用"],
+  "transferMethods": ["无偿捐赠", "站内转让", "回收处置"],
+  "factors": [
+    { "id": "book", "category": "图书文娱", "name": "教材 / 图书", "unit": "kg", "value": 1.10, "source": "文化用纸隐含碳约 1.1 kgCO₂e/kg，CLCD-China" },
+    { "id": "paper", "category": "图书文娱", "name": "报刊 / 练习册", "unit": "kg", "value": 0.90, "source": "按再生纸浆掺配比例折算，CLCD-China" },
+    { "id": "stationery", "category": "图书文娱", "name": "文具 / 画具", "unit": "件", "value": 0.30, "source": "单件塑料文具隐含碳按再利用摊薄估算" },
+    { "id": "clothing", "category": "服饰家居", "name": "衣物 / 鞋帽", "unit": "kg", "value": 5.50, "source": "纺织品隐含碳按延长使用寿命摊薄估算" },
+    { "id": "bedding", "category": "服饰家居", "name": "被褥 / 床品", "unit": "kg", "value": 3.20, "source": "棉纺织物隐含碳按再利用摊薄估算" },
+    { "id": "bags", "category": "服饰家居", "name": "箱包", "unit": "件", "value": 2.50, "source": "单件箱包隐含碳按再利用摊薄估算" },
+    { "id": "appliance", "category": "电器数码", "name": "小家电", "unit": "件", "value": 8.00, "source": "台灯 / 电风扇 / 电水壶等平均隐含碳按延寿折算" },
+    { "id": "accessory", "category": "电器数码", "name": "数码配件", "unit": "件", "value": 0.60, "source": "数据线 / 充电器等单件隐含碳按再利用摊薄估算" },
+    { "id": "phone", "category": "电器数码", "name": "手机 / 平板", "unit": "件", "value": 25.00, "source": "手机生产碳足迹按延长使用寿命折算" },
+    { "id": "plastic", "category": "生活用品", "name": "塑料 / 收纳用品", "unit": "kg", "value": 2.50, "source": "通用塑料 PP/PE 隐含碳因子估算" },
+    { "id": "kitchen", "category": "生活用品", "name": "厨具 / 餐具", "unit": "kg", "value": 1.80, "source": "不锈钢与陶瓷混合材质加权估算" },
+    { "id": "bike", "category": "运动出行", "name": "自行车", "unit": "件", "value": 12.00, "source": "钢材隐含碳按延长使用寿命折算" },
+    { "id": "fitness", "category": "运动出行", "name": "健身器材", "unit": "kg", "value": 1.80, "source": "以铸铁与钢材为主，按钢材碳足迹折算" }
+  ]
+}

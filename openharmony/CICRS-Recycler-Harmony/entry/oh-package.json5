@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "CICRS 青碳汇回收员端 entry module",
+  "main": "./src/main/ets/pages/Index.ets",
+  "dependencies": {}
+}

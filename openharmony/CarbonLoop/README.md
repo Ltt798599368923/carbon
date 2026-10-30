@@ -1,6 +1,6 @@
 # CarbonLoop OpenHarmony / ArkTS MVP
 
-这里是 CarbonLoop（碳行校园）的 OpenHarmony 第一版业务骨架，当前先覆盖“碳账本 + 低碳行为记录”主流程。
+这里是 CarbonLoop（碳行校园）的 OpenHarmony 第一版业务骨架，当前覆盖“碳账本 + 低碳行为记录 + 旧物第二人生”主流程。
 
 ## 当前已实现
 
@@ -8,8 +8,10 @@
 - 首页数据概览：累计减排、碳积分、减排指南、校园挑战卡片
 - 行为记录：选择行为、输入数量、实时计算减排量与积分
 - 最近记录：新增记录即时展示
+- 旧物第二人生：登记物品、选择首个去向、查看流转卡片并更新交换/捐赠/维修/回收状态
+- 地图已从首版鸿蒙主导航和启动同步中移除；后端点位接口与历史记录字段保留兼容
 - 计算逻辑独立于 UI，位于 `entry/src/main/ets/model/CarbonModel.ets`
-- 已适配本机 HarmonyOS 6.0.2（API 22）构建配置
+- 已适配本机 HarmonyOS 6.0.1（API 21）构建配置
 
 ## 打开工程
 
@@ -29,9 +31,19 @@ D:\CarbonLoop\openharmony\CarbonLoop
 4. 根据本机设备情况选择模拟器或真机运行。
 5. 如果 DevEco Studio 提示 Windows Defender 排除目录失败，可以先忽略，该提示不等同于代码构建失败。
 
+## 命令行构建
+
+macOS 本机 DevEco SDK 位于 `/Applications/DevEco-Studio.app/Contents/sdk`。Hvigor 需要通过 `DEVECO_SDK_HOME` 获得该路径：
+
+```bash
+DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
+  /Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw \
+  assembleHap --mode module -p module=entry@default -p product=default --no-daemon
+```
+
 ## 已验证
 
-在本机 DevEco Studio 6.0.2 工具链下，使用 HarmonyOS 6.0.2（API 22）配置已经通过 `assembleHap` 构建。当前仅有未配置签名的警告；连接设备运行前，再在 DevEco Studio 中配置调试签名即可。
+在本机 DevEco Studio 工具链下，使用已安装的 HarmonyOS 6.0.1（API 21）配置进行 `assembleHap` 构建成功。当前仅有未配置签名的警告；连接设备运行前，再在 DevEco Studio 中配置调试签名即可。
 
 ## 下一步
 
