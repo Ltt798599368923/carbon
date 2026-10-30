@@ -947,28 +947,6 @@ struct Index {
         .padding(18);
 
         Column({ space: 0 }) {
-          this.sectionTitle('旧物第二人生', `${this.items.length} 件在流转`);
-          Row({ space: 14 }) {
-            Text('物').fontSize(13).fontWeight(FontWeight.Bold).fontColor(this.ink).backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(8);
-            Column({ space: 4 }) {
-              Text('登记一件旧物，给它新的去处').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink);
-              Text('交换、捐赠、维修或回收，形成可追踪的流转卡片').fontSize(12).fontColor(this.muted);
-            }.alignItems(HorizontalAlign.Start).layoutWeight(1);
-            Button('进入')
-              .fontSize(12)
-              .fontColor(this.accent)
-              .backgroundColor(this.mint)
-              .borderRadius(4)
-              .onClick(() => this.currentTab = 4);
-          }
-          .width('100%')
-          .padding({ top: 12, bottom: 12 });
-        }
-        .padding(18)
-        .backgroundColor(this.panel)
-        .borderRadius(20);
-
-        Column({ space: 0 }) {
           this.sectionTitle('个人趋势', '日 / 周 / 月 / 年');
           Row({ space: 14 }) {
             Text('趋').fontSize(13).fontWeight(FontWeight.Bold).fontColor(this.ink).backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(4);
@@ -1732,6 +1710,28 @@ struct Index {
         .borderRadius(20);
 
         Column({ space: 0 }) {
+          this.sectionTitle('第二人生', `${this.items.length} 件在流转`);
+          Row({ space: 14 }) {
+            Text('物').fontSize(13).fontWeight(FontWeight.Bold).fontColor(this.ink).backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(8);
+            Column({ space: 4 }) {
+              Text('旧物回收与再利用').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink);
+              Text('交换、捐赠、维修或回收，形成可追踪的流转卡片').fontSize(12).fontColor(this.muted);
+            }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+            Button('进入')
+              .fontSize(12)
+              .fontColor(this.accent)
+              .backgroundColor(this.mint)
+              .borderRadius(4)
+              .onClick(() => this.currentTab = 4);
+          }
+          .width('100%')
+          .padding({ top: 12, bottom: 12 });
+        }
+        .padding(18)
+        .backgroundColor(this.panel)
+        .borderRadius(20);
+
+        Column({ space: 0 }) {
           this.sectionTitle('记录概览', '当前状态');
           this.summaryRow('数据连接', this.backendStatus);
           this.summaryRow('待同步数据', `${this.pendingSyncCount + this.pendingItemSyncCount} 条`);
@@ -2000,12 +2000,9 @@ struct Index {
       }
       Row() {
         this.tabButton('首页', 0);
-        this.tabButton('趋势', 1);
         this.tabButton('记录', 2);
         this.tabButton('挑战', 3);
-        this.tabButton('旧物', 4);
         this.tabButton('我的', 5);
-        this.tabButton('科普', 6);
       }
       .width('100%')
       .padding({ left: 14, right: 14, top: 10, bottom: 12 })
