@@ -362,7 +362,9 @@ struct Index {
         points: calculatePoints(factor, weightKg),
         events: [{ id: `local_event_${clientItemId}`, type: this.itemFlow, label: this.itemStatusLabel(this.itemFlow), note: '', createdAt: now }],
         updatedAt: now,
-        createdAt: now
+        createdAt: now,
+        workflowStatus: 'PENDING',
+        workflowStatusLabel: '等待管理员核验'
       };
       this.items = [localItem, ...this.items.filter((candidate: ApiItem) => candidate.clientItemId !== clientItemId)];
       saveItems(carbonPreferences, this.items);
@@ -465,7 +467,9 @@ struct Index {
         points: item.points,
         events: [...(item.events ?? []), { id: `local_event_${Date.now()}`, type: flow, label: this.itemStatusLabel(flow), note: '', createdAt: now }],
         updatedAt: now,
-        createdAt: item.createdAt
+        createdAt: item.createdAt,
+        workflowStatus: item.workflowStatus,
+        workflowStatusLabel: item.workflowStatusLabel
       };
       this.items = this.items.map((candidate: ApiItem) => candidate.id === item.id ? updated : candidate);
       saveItems(carbonPreferences, this.items);
