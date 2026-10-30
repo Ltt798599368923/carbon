@@ -1,11 +1,28 @@
 import { preferences } from '@kit.ArkData';
 import { CarbonRecord, findFactor } from '../model/CarbonModel';
+import { ApiItem } from '../network/ApiClient';
 
 const RECORDS_KEY: string = 'carbon_records_v1';
 const CHALLENGE_KEY: string = 'challenge_joined_v1';
 const DEVICE_ID_KEY: string = 'backend_device_id_v1';
 const TOKEN_KEY: string = 'backend_token_v1';
 const DELETED_RECORDS_KEY: string = 'carbon_deleted_records_v1';
+const ITEMS_KEY: string = 'carbon_items_v1';
+const PENDING_ITEM_CREATES_KEY: string = 'carbon_pending_item_creates_v1';
+const PENDING_ITEM_EVENTS_KEY: string = 'carbon_pending_item_events_v1';
+
+export interface PendingItemCreate {
+  clientItemId: string;
+  title: string;
+  itemType: string;
+  weightKg: number;
+  flow: string;
+}
+
+export interface PendingItemEvent {
+  itemKey: string;
+  type: string;
+}
 
 export function loadRecords(store: preferences.Preferences | null): CarbonRecord[] | null {
   if (store === null) {
@@ -102,6 +119,85 @@ export function saveDeletedRecordIds(store: preferences.Preferences | null, ids:
   store.putSync(DELETED_RECORDS_KEY, JSON.stringify(ids));
   store.flush().catch((error: Error) => {
     console.error(`CarbonLoop failed to flush deleted record ids: ${error.message}`);
+  });
+}
+
+
+export function loadItems(store: preferences.Preferences | null): ApiItem[] {
+  if (store === null) {
+    return [];
+  }
+  const value: preferences.ValueType = store.getSync(ITEMS_KEY, '[]');
+  if (typeof value !== 'string') {
+    return [];
+  }
+  try {
+    const parsed: Object = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as ApiItem[] : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveItems(store: preferences.Preferences | null, items: ApiItem[]): void {
+  if (store === null) {
+    return;
+  }
+  store.putSync(ITEMS_KEY, JSON.stringify(items));
+  store.flush().catch((error: Error) => {
+    console.error(`CarbonLoop failed to flush items: ${error.message}`);
+  });
+}
+
+export function loadPendingItemCreates(store: preferences.Preferences | null): PendingItemCreate[] {
+  if (store === null) {
+    return [];
+  }
+  const value: preferences.ValueType = store.getSync(PENDING_ITEM_CREATES_KEY, '[]');
+  if (typeof value !== 'string') {
+    return [];
+  }
+  try {
+    const parsed: Object = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as PendingItemCreate[] : [];
+  } catch {
+    return [];
+  }
+}
+
+export function savePendingItemCreates(store: preferences.Preferences | null, queue: PendingItemCreate[]): void {
+  if (store === null) {
+    return;
+  }
+  store.putSync(PENDING_ITEM_CREATES_KEY, JSON.stringify(queue));
+  store.flush().catch((error: Error) => {
+    console.error(`CarbonLoop failed to flush item create queue: ${error.message}`);
+  });
+}
+
+export function loadPendingItemEvents(store: preferences.Preferences | null): PendingItemEvent[] {
+  if (store === null) {
+    return [];
+  }
+  const value: preferences.ValueType = store.getSync(PENDING_ITEM_EVENTS_KEY, '[]');
+  if (typeof value !== 'string') {
+    return [];
+  }
+  try {
+    const parsed: Object = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as PendingItemEvent[] : [];
+  } catch {
+    return [];
+  }
+}
+
+export function savePendingItemEvents(store: preferences.Preferences | null, queue: PendingItemEvent[]): void {
+  if (store === null) {
+    return;
+  }
+  store.putSync(PENDING_ITEM_EVENTS_KEY, JSON.stringify(queue));
+  store.flush().catch((error: Error) => {
+    console.error(`CarbonLoop failed to flush item event queue: ${error.message}`);
   });
 }
 

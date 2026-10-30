@@ -13,7 +13,7 @@ import {
 } from '../model/CarbonModel';
 import { KnowledgeArticle, KNOWLEDGE_ARTICLES, findArticle } from '../model/KnowledgeModel';
 import { carbonContext, carbonPreferences } from '../entryability/EntryAbility';
-import { loadBackendToken, loadChallengeJoined, loadDeletedRecordIds, loadDeviceId, loadRecords, saveBackendToken, saveChallengeJoined, saveDeletedRecordIds, saveDeviceId, saveRecords } from '../storage/CarbonStorage';
+import { loadBackendToken, loadChallengeJoined, loadDeletedRecordIds, loadDeviceId, loadItems, loadPendingItemCreates, loadPendingItemEvents, loadRecords, PendingItemCreate, PendingItemEvent, saveBackendToken, saveChallengeJoined, saveDeletedRecordIds, saveDeviceId, saveItems, savePendingItemCreates, savePendingItemEvents, saveRecords } from '../storage/CarbonStorage';
 import { createCarbonBackup, createRecordsCsv, mergeCarbonRecords, parseCarbonBackup, readBackupWithPicker, saveTextWithPicker } from '../storage/CarbonExport';
 import { ApiItem, ApiPointsLedgerEntry, ApiRecord, ApiTask, CarbonApiClient } from '../network/ApiClient';
 
@@ -30,6 +30,7 @@ struct Index {
   @State challengeNotice: string = '';
   @State backendStatus: string = '本地待同步';
   @State pendingSyncCount: number = 0;
+  @State pendingItemSyncCount: number = 0;
   @State taskLedger: ApiPointsLedgerEntry[] = [];
   @State dailyTasks: ApiTask[] = [];
   @State items: ApiItem[] = [];
@@ -62,6 +63,8 @@ struct Index {
     }
     this.challengeJoined = loadChallengeJoined(carbonPreferences);
     this.deletedRecordIds = loadDeletedRecordIds(carbonPreferences);
+    this.items = loadItems(carbonPreferences);
+    this.refreshPendingItemSyncCount();
     this.occurredDateText = this.todayDateText();
     this.refreshPendingSyncCount();
     let deviceId: string | null = loadDeviceId(carbonPreferences);
@@ -85,6 +88,7 @@ struct Index {
       this.api.setToken(login.token);
       saveBackendToken(carbonPreferences, login.token);
       this.backendStatus = '云端已连接';
+      await this.syncPendingItemChanges();
       await this.syncPendingChanges();
       const remoteRecords: ApiRecord[] = await this.api.getRecords();
       if (remoteRecords.length > 0) {
@@ -117,7 +121,14 @@ struct Index {
 
   private async refreshItems(): Promise<void> {
     try {
-      this.items = await this.api.getItems();
+      const remoteItems: ApiItem[] = await this.api.getItems();
+      const pendingCreates: PendingItemCreate[] = loadPendingItemCreates(carbonPreferences);
+      const pendingEvents: PendingItemEvent[] = loadPendingItemEvents(carbonPreferences);
+      if (remoteItems.length > 0 || (pendingCreates.length === 0 && pendingEvents.length === 0)) {
+        const localPendingItems: ApiItem[] = this.items.filter((item: ApiItem) => pendingCreates.some((pending: PendingItemCreate) => pending.clientItemId === item.clientItemId));
+        this.items = [...remoteItems, ...localPendingItems];
+        saveItems(carbonPreferences, this.items);
+      }
     } catch (error) {
       console.error(`CarbonLoop item sync skipped: ${error}`);
     }
@@ -176,6 +187,10 @@ struct Index {
     this.pendingSyncCount = count;
   }
 
+  private refreshPendingItemSyncCount(): void {
+    this.pendingItemSyncCount = loadPendingItemCreates(carbonPreferences).length + loadPendingItemEvents(carbonPreferences).length;
+  }
+
   private getDailyTask(): ApiTask | null {
     return this.dailyTasks.length > 0 ? this.dailyTasks[0] : null;
   }
@@ -226,6 +241,19 @@ struct Index {
     return Number.isFinite(value) ? Math.max(0, value) : 0;
   }
 
+  private itemStatusLabel(flow: string): string {
+    if (flow === 'exchange') {
+      return '等待交换';
+    }
+    if (flow === 'donate') {
+      return '已捐赠';
+    }
+    if (flow === 'repair') {
+      return '维修中';
+    }
+    return '已进入回收流程';
+  }
+
   private async createItem(): Promise<void> {
     const title: string = this.itemTitle.trim();
     const itemType: string = this.itemType.trim();
@@ -234,14 +262,16 @@ struct Index {
       this.itemNotice = '请填写物品名称和类型。';
       return;
     }
-    if (weightKg <= 0) {
-      this.itemNotice = '请输入大于 0 的物品重量。';
+    if (weightKg <= 0 || weightKg > 1000) {
+      this.itemNotice = '请输入大于 0 且不超过 1000 kg 的物品重量。';
       return;
     }
+    const clientItemId: string = `item-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     this.itemNotice = '正在生成第二人生卡片…';
     try {
-      const item: ApiItem = await this.api.createItem(`${Date.now()}`, title, itemType, weightKg, this.itemFlow);
-      this.items = [item, ...this.items.filter((candidate: ApiItem) => candidate.id !== item.id)];
+      const item: ApiItem = await this.api.createItem(clientItemId, title, itemType, weightKg, this.itemFlow);
+      this.items = [item, ...this.items.filter((candidate: ApiItem) => candidate.id !== item.id && candidate.clientItemId !== item.clientItemId)];
+      saveItems(carbonPreferences, this.items);
       const itemRecordId: string = item.clientItemId.length > 0 ? `item:${item.clientItemId}` : item.id;
       const itemRecord: CarbonRecord = {
         id: itemRecordId,
@@ -259,14 +289,58 @@ struct Index {
       this.records = [itemRecord, ...this.records.filter((record: CarbonRecord) => record.id !== itemRecordId)];
       saveRecords(carbonPreferences, this.records);
       this.refreshPendingSyncCount();
+      this.refreshPendingItemSyncCount();
       this.itemTitle = '';
       this.itemWeightText = '1';
       this.backendStatus = '云端已连接';
       this.itemNotice = `已登记“${item.title}”，获得 ${item.points} 个积分。减排为当前因子口径下的估算值。`;
     } catch (error) {
+      const now: string = new Date().toISOString();
+      const factor: CarbonFactor = findFactor('recycle');
+      const localItem: ApiItem = {
+        id: `local_${clientItemId}`,
+        clientItemId,
+        title,
+        itemType,
+        weightKg,
+        flow: this.itemFlow,
+        status: this.itemStatusLabel(this.itemFlow),
+        cycleCount: 1,
+        reductionKg: Number(calculateReduction(factor, weightKg).toFixed(4)),
+        points: calculatePoints(factor, weightKg),
+        events: [{ id: `local_event_${clientItemId}`, type: this.itemFlow, label: this.itemStatusLabel(this.itemFlow), note: '', createdAt: now }],
+        updatedAt: now,
+        createdAt: now
+      };
+      this.items = [localItem, ...this.items.filter((candidate: ApiItem) => candidate.clientItemId !== clientItemId)];
+      saveItems(carbonPreferences, this.items);
+      const creates: PendingItemCreate[] = loadPendingItemCreates(carbonPreferences);
+      if (!creates.some((candidate: PendingItemCreate) => candidate.clientItemId === clientItemId)) {
+        creates.push({ clientItemId, title, itemType, weightKg, flow: this.itemFlow });
+        savePendingItemCreates(carbonPreferences, creates);
+      }
+      const itemRecord: CarbonRecord = {
+        id: `item:${clientItemId}`,
+        factorId: 'recycle',
+        factorVersion: factor.version,
+        amount: weightKg,
+        reductionKg: localItem.reductionKg,
+        points: localItem.points,
+        occurredAt: now,
+        createdAt: now,
+        verificationStatus: 'self_reported',
+        syncStatus: 'pending',
+        syncOperation: 'create'
+      };
+      this.records = [itemRecord, ...this.records.filter((record: CarbonRecord) => record.id !== itemRecord.id)];
+      saveRecords(carbonPreferences, this.records);
+      this.refreshPendingSyncCount();
+      this.refreshPendingItemSyncCount();
       this.backendStatus = '离线可用';
-      this.itemNotice = '旧物已登记失败，请联网后重试。';
-      console.error(`CarbonLoop item create skipped: ${error}`);
+      this.itemTitle = '';
+      this.itemWeightText = '1';
+      this.itemNotice = '已保存在本机，联网后会自动同步旧物卡片和首次积分。';
+      console.error(`CarbonLoop item create queued: ${error}`);
     }
   }
 
@@ -278,12 +352,38 @@ struct Index {
     try {
       const updated: ApiItem = await this.api.addItemCycleEvent(item.id, flow);
       this.items = this.items.map((candidate: ApiItem) => candidate.id === updated.id ? updated : candidate);
+      saveItems(carbonPreferences, this.items);
       this.backendStatus = '云端已连接';
       this.itemNotice = `已更新“${updated.title}”的流转状态：${updated.status}。后续流转不会重复发放首次登记积分。`;
     } catch (error) {
+      const now: string = new Date().toISOString();
+      const updated: ApiItem = {
+        id: item.id,
+        clientItemId: item.clientItemId,
+        title: item.title,
+        itemType: item.itemType,
+        weightKg: item.weightKg,
+        flow,
+        status: this.itemStatusLabel(flow),
+        cycleCount: item.cycleCount + 1,
+        reductionKg: item.reductionKg,
+        points: item.points,
+        events: [...(item.events ?? []), { id: `local_event_${Date.now()}`, type: flow, label: this.itemStatusLabel(flow), note: '', createdAt: now }],
+        updatedAt: now,
+        createdAt: item.createdAt
+      };
+      this.items = this.items.map((candidate: ApiItem) => candidate.id === item.id ? updated : candidate);
+      saveItems(carbonPreferences, this.items);
+      const itemKey: string = item.clientItemId.length > 0 ? item.clientItemId : item.id;
+      const events: PendingItemEvent[] = loadPendingItemEvents(carbonPreferences);
+      if (!events.some((candidate: PendingItemEvent) => candidate.itemKey === itemKey && candidate.type === flow)) {
+        events.push({ itemKey, type: flow });
+        savePendingItemEvents(carbonPreferences, events);
+      }
+      this.refreshPendingItemSyncCount();
       this.backendStatus = '离线可用';
-      this.itemNotice = '流转状态更新失败，请联网后重试。';
-      console.error(`CarbonLoop item event skipped: ${error}`);
+      this.itemNotice = '已保存在本机，联网后会自动同步流转状态。';
+      console.error(`CarbonLoop item event queued: ${error}`);
     }
   }
 
@@ -299,6 +399,70 @@ struct Index {
     }
     this.challengeJoined = true;
     saveChallengeJoined(carbonPreferences, true);
+  }
+
+  private async syncPendingItemChanges(): Promise<void> {
+    let creates: PendingItemCreate[] = loadPendingItemCreates(carbonPreferences);
+    let events: PendingItemEvent[] = loadPendingItemEvents(carbonPreferences);
+    for (const pending of creates) {
+      try {
+        const remote: ApiItem = await this.api.createItem(pending.clientItemId, pending.title, pending.itemType, pending.weightKg, pending.flow);
+        const localItem: ApiItem | undefined = this.items.find((item: ApiItem) => item.clientItemId === pending.clientItemId);
+        this.items = localItem === undefined
+          ? [remote, ...this.items]
+          : this.items.map((item: ApiItem) => item.id === localItem.id ? remote : item);
+        const itemRecordId: string = `item:${pending.clientItemId}`;
+        this.records = this.records.map((record: CarbonRecord): CarbonRecord => record.id === itemRecordId
+          ? {
+            id: record.id,
+            factorId: record.factorId,
+            factorVersion: record.factorVersion,
+            amount: record.amount,
+            reductionKg: remote.reductionKg,
+            points: remote.points,
+            occurredAt: record.occurredAt,
+            createdAt: record.createdAt,
+            verificationStatus: record.verificationStatus,
+            locationId: record.locationId,
+            syncStatus: 'synced',
+            syncOperation: 'create'
+          }
+          : record);
+        creates = creates.filter((candidate: PendingItemCreate) => candidate.clientItemId !== pending.clientItemId);
+        savePendingItemCreates(carbonPreferences, creates);
+        saveItems(carbonPreferences, this.items);
+        saveRecords(carbonPreferences, this.records);
+        const localItemKey: string = localItem === undefined ? '' : localItem.id;
+        const matchingEvents: PendingItemEvent[] = events.filter((event: PendingItemEvent) => event.itemKey === pending.clientItemId || event.itemKey === localItemKey);
+        events = events.filter((event: PendingItemEvent) => event.itemKey !== pending.clientItemId && event.itemKey !== localItemKey);
+        for (const event of matchingEvents) {
+          const updated: ApiItem = await this.api.addItemCycleEvent(remote.id, event.type);
+          this.items = this.items.map((item: ApiItem) => item.id === updated.id ? updated : item);
+        }
+        savePendingItemEvents(carbonPreferences, events);
+        saveItems(carbonPreferences, this.items);
+      } catch (error) {
+        console.error(`CarbonLoop pending item create skipped: ${error}`);
+        break;
+      }
+    }
+    const pendingEventsSnapshot: PendingItemEvent[] = [...events];
+    for (const event of pendingEventsSnapshot) {
+      const target: ApiItem | undefined = this.items.find((item: ApiItem) => item.clientItemId === event.itemKey || item.id === event.itemKey);
+      if (target === undefined || target.id.startsWith('local_')) {
+        continue;
+      }
+      try {
+        const updated: ApiItem = await this.api.addItemCycleEvent(target.id, event.type);
+        this.items = this.items.map((item: ApiItem) => item.id === updated.id ? updated : item);
+        events = events.filter((candidate: PendingItemEvent) => candidate !== event);
+        savePendingItemEvents(carbonPreferences, events);
+        saveItems(carbonPreferences, this.items);
+      } catch (error) {
+        console.error(`CarbonLoop pending item event skipped: ${error}`);
+      }
+    }
+    this.refreshPendingItemSyncCount();
   }
 
   private async syncPendingChanges(): Promise<void> {
@@ -337,7 +501,8 @@ struct Index {
       return;
     }
     await this.initializeBackend(deviceId);
-    this.notice = this.pendingSyncCount === 0 ? '同步已完成。' : `仍有 ${this.pendingSyncCount} 条记录待同步。`;
+    const pendingTotal: number = this.pendingSyncCount + this.pendingItemSyncCount;
+    this.notice = pendingTotal === 0 ? '同步已完成。' : `仍有 ${pendingTotal} 条数据待同步。`;
   }
 
   private getPreviewAmount(): number {
@@ -1348,7 +1513,7 @@ struct Index {
         Column({ space: 0 }) {
           this.sectionTitle('记录概览', '当前状态');
           this.summaryRow('数据连接', this.backendStatus);
-          this.summaryRow('待同步记录', `${this.pendingSyncCount} 条`);
+          this.summaryRow('待同步数据', `${this.pendingSyncCount + this.pendingItemSyncCount} 条`);
           this.summaryRow('行为记录', `${this.records.length} 笔`);
           this.summaryRow('挑战状态', this.challengeJoined ? '已加入本周挑战' : '尚未加入挑战');
           this.summaryRow('步行与骑行', `${this.getChallengeProgress()} / 15 km`);

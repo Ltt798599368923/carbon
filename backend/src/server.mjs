@@ -396,6 +396,8 @@ async function handle(req, res) {
       const data = await body(req);
       const type = String(data.type ?? '').trim();
       if (!ITEM_FLOWS.has(type)) return error(res, 400, '无效的流转方式');
+      // 同一物品连续点击当前状态时保持幂等，避免重复增加流转次数。
+      if (item.flow === type) return json(res, 200, { ok: true, item: itemCycleView(item), duplicate: true });
       const locationId = typeof data.locationId === 'string' ? data.locationId.slice(0, 100) : '';
       const location = locationId ? store.locations.find((candidate) => candidate.id === locationId) : null;
       if (locationId && (!location || location.status !== 'open')) return error(res, 400, '无效或不可用的校园点位');

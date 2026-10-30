@@ -143,11 +143,50 @@ test('item cycle creates a passport card and only credits once', async () => {
   })).json();
   assert.equal(updated.item.status, '已捐赠');
   assert.equal(updated.item.cycleCount, 2);
+  const repeated = await (await fetch(`${`http://127.0.0.1:${port}`}/api/v1/items/${created.item.id}/cycle-events`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ type: 'donate', note: '重复点击不应重复计数' })
+  })).json();
+  assert.equal(repeated.duplicate, true);
+  assert.equal(repeated.item.cycleCount, 2);
   const items = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, { headers })).json();
   assert.equal(items.items.length, 1);
   const dashboard = await (await fetch(`http://127.0.0.1:${port}/api/v1/dashboard`, { headers })).json();
   assert.equal(dashboard.summary.totalPoints, 6);
   assert.equal(dashboard.recentItems[0].cycleCount, 2);
+});
+
+test('item flow validation covers all four lifecycle choices', async () => {
+  const login = await (await fetch(`http://127.0.0.1:${port}/api/v1/auth/guest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId: 'item-flow-device' })
+  })).json();
+  const headers = { authorization: `Bearer ${login.token}`, 'content-type': 'application/json' };
+  const flows = [
+    ['exchange', '等待交换'],
+    ['donate', '已捐赠'],
+    ['repair', '维修中'],
+    ['recycle', '已进入回收流程']
+  ];
+  for (const [index, pair] of flows.entries()) {
+    const created = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ clientItemId: `flow-${index}`, title: `物品-${index}`, itemType: '书籍', weightKg: 1, flow: pair[0] })
+    })).json();
+    assert.equal(created.item.status, pair[1]);
+    assert.equal(created.item.cycleCount, 1);
+  }
+  const invalidWeight = await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ clientItemId: 'invalid-weight', title: '无效物品', itemType: '书籍', weightKg: 0, flow: 'exchange' })
+  });
+  assert.equal(invalidWeight.status, 400);
+  const invalidFlow = await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ clientItemId: 'invalid-flow', title: '无效流转', itemType: '书籍', weightKg: 1, flow: 'sell' })
+  });
+  assert.equal(invalidFlow.status, 400);
 });
 
 test('behavior-only records, tasks, ledger and record reversal stay consistent', async () => {
