@@ -135,6 +135,12 @@ function syncTaskRewardsForDate(userId, day) {
   }
 }
 
+function rewardView(userId, reward) {
+  const redeemed = store.redemptions.some((item) => item.userId === userId && item.rewardId === reward.id);
+  const totalPoints = userPoints(userId);
+  return { ...reward, redeemed, canRedeem: !redeemed && totalPoints >= reward.cost };
+}
+
 function challengeProgress(userId, challenge) {
   const start = Date.parse(challenge.startsAt);
   const end = Date.parse(challenge.endsAt);
@@ -316,6 +322,31 @@ async function handle(req, res) {
 
     if (req.method === 'GET' && pathname === `${API_PREFIX}/tasks`) {
       return json(res, 200, { ok: true, tasks: store.tasks.filter((task) => task.active).map((task) => taskView(user.id, task)) });
+    }
+
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/rewards`) {
+      return json(res, 200, {
+        ok: true,
+        rewards: store.rewards.map((reward) => rewardView(user.id, reward)),
+        redemptions: store.redemptions.filter((item) => item.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        totalPoints: userPoints(user.id)
+      });
+    }
+
+    const rewardMatch = pathname.match(new RegExp(`^${API_PREFIX}/rewards/([^/]+)/redeem$`));
+    if (req.method === 'POST' && rewardMatch) {
+      const reward = store.rewards.find((item) => item.id === rewardMatch[1]);
+      if (!reward) return error(res, 404, '奖励不存在', 'REWARD_NOT_FOUND');
+      const redeemed = store.redemptions.some((item) => item.userId === user.id && item.rewardId === reward.id);
+      if (redeemed && reward.limitPerUser === 1) return error(res, 409, '该奖励每位用户只能兑换一次', 'REWARD_ALREADY_REDEEMED');
+      const totalPoints = userPoints(user.id);
+      if (totalPoints < reward.cost) return error(res, 400, `积分不足，需要 ${reward.cost} 分`, 'INSUFFICIENT_POINTS');
+      const now = new Date().toISOString();
+      const redemption = { id: `redemption_${randomUUID()}`, userId: user.id, rewardId: reward.id, rewardName: reward.name, cost: reward.cost, kind: reward.kind, code: reward.code, createdAt: now };
+      store.redemptions.push(redemption);
+      store.pointsLedger.push({ id: `points_${randomUUID()}`, userId: user.id, points: -reward.cost, reason: `兑换：${reward.name}`, createdAt: now });
+      await persist();
+      return json(res, 201, { ok: true, reward: rewardView(user.id, reward), redemption, totalPoints: userPoints(user.id) });
     }
 
     if (req.method === 'GET' && pathname === `${API_PREFIX}/points-ledger`) {

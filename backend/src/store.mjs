@@ -80,6 +80,12 @@ const initialStore = {
   records: [],
   itemCycles: [],
   pointsLedger: [],
+  rewards: [
+    { id: 'badge-green-start', name: '绿色起点徽章', description: '完成第一笔低碳行为后可兑换的虚拟徽章。', cost: 10, kind: 'badge', code: 'green-start', limitPerUser: 1 },
+    { id: 'tree-certificate', name: '校园植树证书', description: '用积分兑换一份 CarbonLoop 虚拟植树证书。', cost: 30, kind: 'certificate', code: 'tree-2026', limitPerUser: 1 },
+    { id: 'badge-cycle-star', name: '循环之星徽章', description: '支持旧物循环和第二人生行动。', cost: 50, kind: 'badge', code: 'cycle-star', limitPerUser: 1 }
+  ],
+  redemptions: [],
   tasks: [{
     id: 'daily-reusable',
     name: '今日少用一次性用品',
@@ -120,6 +126,8 @@ export async function readStore() {
       records: Array.isArray(parsed.records) ? parsed.records : [],
       itemCycles: Array.isArray(parsed.itemCycles) ? parsed.itemCycles : [],
       pointsLedger: Array.isArray(parsed.pointsLedger) ? parsed.pointsLedger : [],
+      rewards: Array.isArray(parsed.rewards) ? parsed.rewards : structuredClone(initialStore.rewards),
+      redemptions: Array.isArray(parsed.redemptions) ? parsed.redemptions : [],
       tasks: Array.isArray(parsed.tasks) ? parsed.tasks : structuredClone(initialStore.tasks),
       taskCompletions: Array.isArray(parsed.taskCompletions) ? parsed.taskCompletions : [],
       challenges: Array.isArray(parsed.challenges) ? parsed.challenges : structuredClone(initialStore.challenges),

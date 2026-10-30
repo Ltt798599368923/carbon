@@ -1,7 +1,38 @@
 {
   "users": [],
   "records": [],
+  "itemCycles": [],
   "pointsLedger": [],
+  "rewards": [
+    {
+      "id": "badge-green-start",
+      "name": "绿色起点徽章",
+      "description": "完成第一笔低碳行为后可兑换的虚拟徽章。",
+      "cost": 10,
+      "kind": "badge",
+      "code": "green-start",
+      "limitPerUser": 1
+    },
+    {
+      "id": "tree-certificate",
+      "name": "校园植树证书",
+      "description": "用积分兑换一份 CarbonLoop 虚拟植树证书。",
+      "cost": 30,
+      "kind": "certificate",
+      "code": "tree-2026",
+      "limitPerUser": 1
+    },
+    {
+      "id": "badge-cycle-star",
+      "name": "循环之星徽章",
+      "description": "支持旧物循环和第二人生行动。",
+      "cost": 50,
+      "kind": "badge",
+      "code": "cycle-star",
+      "limitPerUser": 1
+    }
+  ],
+  "redemptions": [],
   "challenges": [
     {
       "id": "walk-week-2026-10",

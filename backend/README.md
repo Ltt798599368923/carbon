@@ -30,6 +30,8 @@ GET  http://127.0.0.1:8787/api/v1/locations
 GET  http://127.0.0.1:8787/api/v1/teams
 POST http://127.0.0.1:8787/api/v1/actions
 GET  http://127.0.0.1:8787/api/v1/items
+GET  http://127.0.0.1:8787/api/v1/rewards
+POST http://127.0.0.1:8787/api/v1/rewards/:id/redeem
 POST http://127.0.0.1:8787/api/v1/items
 POST http://127.0.0.1:8787/api/v1/items/:id/cycle-events
 ```
@@ -44,6 +46,7 @@ POST http://127.0.0.1:8787/api/v1/items/:id/cycle-events
 4. 挑战进度从已保存记录实时汇总，不依赖前端传入的进度。
 5. 因子带有版本号，后续可以接入来源和后台审核。
 6. `GET /api/v1/tasks` 和 `GET /api/v1/points-ledger` 提供任务进度与积分流水；记录支持 `PATCH/DELETE /api/v1/records/:id`，撤销会回算任务奖励。
+7. `GET /api/v1/rewards` 和 `POST /api/v1/rewards/:id/redeem` 使用服务端积分余额完成虚拟徽章、植树证书兑换，并保存兑换流水。
 
 ## 校园碳循环
 

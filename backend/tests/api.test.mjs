@@ -189,6 +189,26 @@ test('item flow validation covers all four lifecycle choices', async () => {
   assert.equal(invalidFlow.status, 400);
 });
 
+test('points rewards can be redeemed once and reduce the balance', async () => {
+  const login = await (await fetch(`http://127.0.0.1:${port}/api/v1/auth/guest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId: 'reward-device' })
+  })).json();
+  const headers = { authorization: `Bearer ${login.token}`, 'content-type': 'application/json' };
+  await fetch(`http://127.0.0.1:${port}/api/v1/records`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ clientRecordId: 'reward-record', factorId: 'reusable', amount: 5 })
+  });
+  const catalog = await (await fetch(`http://127.0.0.1:${port}/api/v1/rewards`, { headers })).json();
+  assert.equal(catalog.totalPoints, 33);
+  const redeemed = await (await fetch(`http://127.0.0.1:${port}/api/v1/rewards/tree-certificate/redeem`, { method: 'POST', headers })).json();
+  assert.equal(redeemed.redemption.cost, 30);
+  assert.equal(redeemed.totalPoints, 3);
+  const duplicate = await fetch(`http://127.0.0.1:${port}/api/v1/rewards/tree-certificate/redeem`, { method: 'POST', headers });
+  assert.equal(duplicate.status, 409);
+});
+
 test('behavior-only records, tasks, ledger and record reversal stay consistent', async () => {
   const login = await (await fetch(`http://127.0.0.1:${port}/api/v1/auth/guest`, {
     method: 'POST',

@@ -11,6 +11,7 @@
 - 低碳行为记录：创建、查询、修改、删除。
 - 因子目录、减排估算、积分流水。
 - 每日任务、挑战加入和进度统计。
+- 积分奖励目录、一次性兑换、虚拟徽章/植树证书兑换记录。
 - 访客登录和本地后端同步。
 - 旧物第二人生接口：
   - `GET /api/v1/items`
@@ -82,7 +83,7 @@
 
 | 文件 | 用途 |
 |---|---|
-| `backend/src/server.mjs` | REST API 和旧物流转逻辑 |
+| `backend/src/server.mjs` | REST API、旧物流转和积分奖励兑换逻辑 |
 | `backend/src/store.mjs` | 后端本地数据结构和持久化 |
 | `backend/tests/api.test.mjs` | 后端 API 测试 |
 | `tests/emission-factors.test.js` | 因子和计算测试 |

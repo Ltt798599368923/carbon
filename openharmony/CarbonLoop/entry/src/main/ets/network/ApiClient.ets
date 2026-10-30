@@ -42,6 +42,28 @@ export interface ApiTask {
   completed: boolean;
 }
 
+export interface ApiReward {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  kind: string;
+  code: string;
+  limitPerUser: number;
+  redeemed: boolean;
+  canRedeem: boolean;
+}
+
+export interface ApiRedemption {
+  id: string;
+  rewardId: string;
+  rewardName: string;
+  cost: number;
+  kind: string;
+  code: string;
+  createdAt: string;
+}
+
 export interface ApiPointsLedgerEntry {
   id: string;
   recordId?: string;
@@ -142,6 +164,11 @@ interface ApiEnvelope {
   recentRecords?: ApiRecord[];
   tasks?: ApiTask[];
   pointsLedger?: ApiPointsLedgerEntry[];
+  rewards?: ApiReward[];
+  redemptions?: ApiRedemption[];
+  totalPoints?: number;
+  reward?: ApiReward;
+  redemption?: ApiRedemption;
   item?: ApiItem;
   items?: ApiItem[];
 }
@@ -202,6 +229,14 @@ export class CarbonApiClient {
       throw new Error('后端没有返回更新后的记录');
     }
     return response.record;
+  }
+
+  public async getRewards(): Promise<ApiEnvelope> {
+    return this.request('/api/v1/rewards', http.RequestMethod.GET);
+  }
+
+  public async redeemReward(rewardId: string): Promise<ApiEnvelope> {
+    return this.request(`/api/v1/rewards/${encodeURIComponent(rewardId)}/redeem`, http.RequestMethod.POST);
   }
 
   public async getTasks(): Promise<ApiTask[]> {

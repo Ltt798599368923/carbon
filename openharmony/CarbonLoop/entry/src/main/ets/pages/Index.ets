@@ -15,7 +15,7 @@ import { KnowledgeArticle, KNOWLEDGE_ARTICLES, findArticle } from '../model/Know
 import { carbonContext, carbonPreferences } from '../entryability/EntryAbility';
 import { loadBackendToken, loadChallengeJoined, loadDeletedRecordIds, loadDeviceId, loadItems, loadPendingItemCreates, loadPendingItemEvents, loadRecords, PendingItemCreate, PendingItemEvent, saveBackendToken, saveChallengeJoined, saveDeletedRecordIds, saveDeviceId, saveItems, savePendingItemCreates, savePendingItemEvents, saveRecords } from '../storage/CarbonStorage';
 import { createCarbonBackup, createRecordsCsv, mergeCarbonRecords, parseCarbonBackup, readBackupWithPicker, saveTextWithPicker } from '../storage/CarbonExport';
-import { ApiItem, ApiPointsLedgerEntry, ApiRecord, ApiTask, CarbonApiClient } from '../network/ApiClient';
+import { ApiItem, ApiPointsLedgerEntry, ApiRecord, ApiReward, ApiTask, CarbonApiClient } from '../network/ApiClient';
 
 @Entry
 @Component
@@ -32,6 +32,9 @@ struct Index {
   @State pendingSyncCount: number = 0;
   @State pendingItemSyncCount: number = 0;
   @State taskLedger: ApiPointsLedgerEntry[] = [];
+  @State rewards: ApiReward[] = [];
+  @State rewardNotice: string = '';
+  @State cloudPoints: number = 0;
   @State dailyTasks: ApiTask[] = [];
   @State items: ApiItem[] = [];
   @State itemTitle: string = '';
@@ -112,6 +115,8 @@ struct Index {
       const dashboard = await this.api.getDashboard();
       this.dailyTasks = dashboard.tasks ?? [];
       this.taskLedger = (dashboard.pointsLedger ?? []).filter((entry: ApiPointsLedgerEntry) => entry.taskId !== undefined);
+      this.cloudPoints = dashboard.summary === undefined ? this.calculateLocalPoints() : dashboard.summary.totalPoints;
+      await this.refreshRewards();
       this.refreshPendingSyncCount();
     } catch (error) {
       this.backendStatus = '离线可用';
@@ -134,6 +139,18 @@ struct Index {
     }
   }
 
+  private async refreshRewards(): Promise<void> {
+    try {
+      const rewardCatalog = await this.api.getRewards();
+      this.rewards = rewardCatalog.rewards ?? [];
+      if (rewardCatalog.totalPoints !== undefined) {
+        this.cloudPoints = rewardCatalog.totalPoints;
+      }
+    } catch (error) {
+      console.error(`CarbonLoop reward catalog skipped: ${error}`);
+    }
+  }
+
   private getSelectedFactor(): CarbonFactor {
     return findFactor(this.selectedFactorId);
   }
@@ -146,7 +163,7 @@ struct Index {
     return total;
   }
 
-  private calculateTotalPoints(): number {
+  private calculateLocalPoints(): number {
     let total: number = 0;
     for (const item of this.records) {
       total += item.points;
@@ -155,6 +172,10 @@ struct Index {
       total += entry.points;
     }
     return total;
+  }
+
+  private calculateTotalPoints(): number {
+    return this.backendStatus === '云端已连接' ? this.cloudPoints : this.calculateLocalPoints();
   }
 
   private todayDateText(): string {
@@ -293,6 +314,7 @@ struct Index {
       this.itemTitle = '';
       this.itemWeightText = '1';
       this.backendStatus = '云端已连接';
+      await this.refreshRewards();
       this.itemNotice = `已登记“${item.title}”，获得 ${item.points} 个积分。减排为当前因子口径下的估算值。`;
     } catch (error) {
       const now: string = new Date().toISOString();
@@ -384,6 +406,24 @@ struct Index {
       this.backendStatus = '离线可用';
       this.itemNotice = '已保存在本机，联网后会自动同步流转状态。';
       console.error(`CarbonLoop item event queued: ${error}`);
+    }
+  }
+
+  private async redeemReward(reward: ApiReward): Promise<void> {
+    if (reward.redeemed || !reward.canRedeem) {
+      this.rewardNotice = reward.redeemed ? '这个奖励已经兑换过了。' : '当前积分不足，完成更多低碳任务后再来兑换。';
+      return;
+    }
+    try {
+      const response = await this.api.redeemReward(reward.id);
+      this.rewards = this.rewards.map((candidate: ApiReward) => candidate.id === reward.id
+        ? { id: candidate.id, name: candidate.name, description: candidate.description, cost: candidate.cost, kind: candidate.kind, code: candidate.code, limitPerUser: candidate.limitPerUser, redeemed: true, canRedeem: false }
+        : candidate);
+      this.cloudPoints = response.totalPoints === undefined ? Math.max(0, this.cloudPoints - reward.cost) : response.totalPoints;
+      this.rewardNotice = `已兑换“${reward.name}”，扣除 ${reward.cost} 分。`;
+    } catch (error) {
+      this.rewardNotice = '奖励兑换失败，请确认网络连接后重试。';
+      console.error(`CarbonLoop reward redeem skipped: ${error}`);
     }
   }
 
@@ -1542,6 +1582,38 @@ struct Index {
         .borderRadius(20);
 
         Column({ space: 0 }) {
+          this.sectionTitle('积分兑换', '虚拟权益');
+          Text('兑换结果会写入云端积分流水，徽章和证书不会重复扣分。')
+            .fontSize(11)
+            .fontColor(this.muted)
+            .lineHeight(18)
+            .padding({ top: 6, bottom: 8 });
+          ForEach(this.rewards, (reward: ApiReward) => {
+            Row({ space: 8 }) {
+              Column({ space: 3 }) {
+                Text(reward.name).fontSize(13).fontColor(this.ink).fontWeight(FontWeight.Medium);
+                Text(`${reward.description} · ${reward.cost} 分`).fontSize(11).fontColor(this.muted);
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+              Button(reward.redeemed ? '已兑换' : reward.canRedeem ? '兑换' : '积分不足')
+                .fontSize(11)
+                .fontColor(reward.redeemed || !reward.canRedeem ? this.muted : this.accent)
+                .backgroundColor(reward.redeemed || !reward.canRedeem ? '#EEF1EF' : '#E7F0EC')
+                .borderRadius(4)
+                .enabled(!reward.redeemed && reward.canRedeem)
+                .onClick(() => this.redeemReward(reward));
+            }
+            .padding({ top: 10, bottom: 10 })
+            .border({ width: { bottom: 1 }, color: this.line });
+          }, (reward: ApiReward) => `reward-${reward.id}`);
+          if (this.rewardNotice.length > 0) {
+            Text(this.rewardNotice).fontSize(11).fontColor(this.accent).padding({ top: 8 });
+          }
+        }
+        .padding(18)
+        .backgroundColor('#FFFFFF')
+        .borderRadius(20);
+
+        Column({ space: 0 }) {
           this.sectionTitle('积分明细', '按记录累计');
           ForEach(this.records.slice(0, 5), (record: CarbonRecord) => {
             Row() {
@@ -1714,6 +1786,8 @@ struct Index {
       const dashboard = await this.api.getDashboard();
       this.dailyTasks = dashboard.tasks ?? [];
       this.taskLedger = (dashboard.pointsLedger ?? []).filter((entry: ApiPointsLedgerEntry) => entry.taskId !== undefined);
+      this.cloudPoints = dashboard.summary === undefined ? this.calculateLocalPoints() : dashboard.summary.totalPoints;
+      await this.refreshRewards();
       this.notice = `已同步 ${findFactor(record.factorId).label}，获得 ${remote.points} 个积分`;
     } catch (error) {
       this.backendStatus = '离线可用';
