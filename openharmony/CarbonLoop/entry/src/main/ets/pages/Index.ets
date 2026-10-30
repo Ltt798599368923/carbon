@@ -2021,11 +2021,12 @@ struct Index {
   private tabButton(label: string, tab: number) {
     Button(label)
       .layoutWeight(1)
-      .fontSize(13)
+      .fontSize(11)
       .fontWeight(this.currentTab === tab ? FontWeight.Bold : FontWeight.Medium)
       .fontColor(this.currentTab === tab ? this.accent : this.muted)
       .backgroundColor(this.currentTab === tab ? this.mint : '#101F1F')
       .borderRadius(4)
+      .padding({ left: 0, right: 0 })
       .onClick(() => this.currentTab = tab);
   }
 }
