@@ -38,7 +38,7 @@ function json(res, status, body) {
     'Content-Length': Buffer.byteLength(payload),
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Id',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
   });
   res.end(payload);
 }
@@ -230,6 +230,64 @@ const ITEM_STATUSES = {
   donate: '已捐赠',
   repair: '维修中'
 };
+const ITEM_COMPLETED_STATUSES = {
+  recycle: '已回收',
+  exchange: '已完成交换',
+  donate: '已完成捐赠',
+  repair: '已维修完成'
+};
+const REQUEST_TYPES = new Set(['exchange', 'donate']);
+const SERVICE_TYPES = new Set(['repair', 'recycle']);
+
+function publicItemView(item) {
+  const owner = store.users.find((candidate) => candidate.id === item.userId);
+  const requests = store.itemRequests.filter((request) => request.itemId === item.id);
+  return {
+    ...itemCycleView(item),
+    owner: owner ? cleanUser(owner) : null,
+    requestCount: requests.length,
+    hasMyPendingRequest: false
+  };
+}
+
+function itemRequestView(request, viewerId) {
+  const item = store.itemCycles.find((candidate) => candidate.id === request.itemId);
+  const applicant = store.users.find((candidate) => candidate.id === request.applicantId);
+  const owner = store.users.find((candidate) => candidate.id === request.ownerId);
+  return {
+    ...request,
+    item: item ? { id: item.id, title: item.title, itemType: item.itemType, flow: item.flow, status: item.status } : null,
+    applicant: applicant ? cleanUser(applicant) : null,
+    owner: owner ? cleanUser(owner) : null,
+    isIncoming: request.ownerId === viewerId
+  };
+}
+
+function serviceOrderView(order) {
+  const item = store.itemCycles.find((candidate) => candidate.id === order.itemId);
+  const requester = store.users.find((candidate) => candidate.id === order.requesterId);
+  const provider = order.providerId ? store.users.find((candidate) => candidate.id === order.providerId) : null;
+  const location = order.locationId ? store.locations.find((candidate) => candidate.id === order.locationId) : null;
+  return {
+    ...order,
+    item: item ? { id: item.id, title: item.title, itemType: item.itemType, status: item.status } : null,
+    requester: requester ? cleanUser(requester) : null,
+    provider: provider ? cleanUser(provider) : null,
+    location: location ? locationView(location) : null
+  };
+}
+
+function awardPoints(userId, points, reason, orderId = undefined) {
+  store.pointsLedger.push({
+    id: `points_${randomUUID()}`,
+    userId,
+    points,
+    reason,
+    orderId,
+    createdAt: new Date().toISOString()
+  });
+}
+
 
 const ITEM_STATIONS = [
   { id: 'station-east', name: '东区旧物驿站', address: '生活区东侧服务点', openHours: '周一至周六 09:00-20:00', enabled: true },
@@ -458,6 +516,202 @@ async function handle(req, res) {
       return json(res, 200, { ok: true, entries: store.pointsLedger.filter((entry) => entry.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit), totalPoints: userPoints(user.id) });
     }
 
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/items/market`) {
+      const flow = url.searchParams.get('flow');
+      const status = url.searchParams.get('status');
+      const items = store.itemCycles
+        .filter((item) => item.public !== false && item.userId !== user.id)
+        .filter((item) => !flow || item.flow === flow)
+        .filter((item) => !status || item.status === status)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .map((item) => ({
+          ...publicItemView(item),
+          hasMyPendingRequest: store.itemRequests.some((request) => request.itemId === item.id && request.applicantId === user.id && request.status === 'pending')
+        }));
+      return json(res, 200, { ok: true, items });
+    }
+
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/items`) {
+      const items = store.itemCycles.filter((item) => item.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(itemCycleView);
+      return json(res, 200, { ok: true, items });
+    }
+
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/requests`) {
+      const scope = url.searchParams.get('scope') ?? 'all';
+      const requests = store.itemRequests
+        .filter((request) => scope === 'incoming' ? request.ownerId === user.id : scope === 'outgoing' ? request.applicantId === user.id : request.ownerId === user.id || request.applicantId === user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((request) => itemRequestView(request, user.id));
+      return json(res, 200, { ok: true, requests });
+    }
+
+    const itemRequestMatch = pathname.match(new RegExp(`^${API_PREFIX}/items/([^/]+)/requests$`));
+    if (req.method === 'POST' && itemRequestMatch) {
+      const item = store.itemCycles.find((candidate) => candidate.id === itemRequestMatch[1] && candidate.public !== false);
+      if (!item) return error(res, 404, '公开物品不存在', 'ITEM_NOT_FOUND');
+      if (item.userId === user.id) return error(res, 400, '不能申请自己的物品', 'OWN_ITEM');
+      if (!REQUEST_TYPES.has(item.flow)) return error(res, 400, '该物品当前不支持交换或领取', 'ITEM_NOT_AVAILABLE');
+      if (item.status !== ITEM_STATUSES[item.flow]) return error(res, 409, '该物品当前不可申请', 'ITEM_NOT_AVAILABLE');
+      const data = await body(req);
+      const duplicate = store.itemRequests.find((request) => request.itemId === item.id && request.applicantId === user.id && ['pending', 'accepted'].includes(request.status));
+      if (duplicate) return json(res, 200, { ok: true, request: itemRequestView(duplicate, user.id), duplicate: true });
+      const now = new Date().toISOString();
+      const request = {
+        id: `request_${randomUUID()}`,
+        itemId: item.id,
+        ownerId: item.userId,
+        applicantId: user.id,
+        type: item.flow,
+        message: String(data.message ?? '').trim().slice(0, 300),
+        offerTitle: String(data.offerTitle ?? '').trim().slice(0, 100),
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now
+      };
+      store.itemRequests.push(request);
+      item.updatedAt = now;
+      await persist();
+      return json(res, 201, { ok: true, request: itemRequestView(request, user.id) });
+    }
+
+    const requestDecisionMatch = pathname.match(new RegExp(`^${API_PREFIX}/requests/([^/]+)/(accept|reject|cancel)$`));
+    if (req.method === 'POST' && requestDecisionMatch) {
+      const request = store.itemRequests.find((candidate) => candidate.id === requestDecisionMatch[1]);
+      if (!request) return error(res, 404, '申请不存在', 'REQUEST_NOT_FOUND');
+      const action = requestDecisionMatch[2];
+      if (action === 'accept' && request.ownerId !== user.id) return error(res, 403, '只有物品发布者可以同意申请', 'FORBIDDEN');
+      if ((action === 'reject' || action === 'cancel') && request.ownerId !== user.id && request.applicantId !== user.id) return error(res, 403, '无权处理该申请', 'FORBIDDEN');
+      if (request.status !== 'pending') return json(res, 200, { ok: true, request: itemRequestView(request, user.id), duplicate: true });
+      const item = store.itemCycles.find((candidate) => candidate.id === request.itemId);
+      const now = new Date().toISOString();
+      request.status = action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'cancelled';
+      request.updatedAt = now;
+      if (action === 'accept' && item) {
+        item.status = item.flow === 'exchange' ? '已有人申请交换' : '已有人申请领取';
+        item.reservedBy = request.applicantId;
+        item.updatedAt = now;
+        for (const other of store.itemRequests.filter((candidate) => candidate.itemId === item.id && candidate.id !== request.id && candidate.status === 'pending')) {
+          other.status = 'rejected';
+          other.updatedAt = now;
+        }
+      }
+      await persist();
+      return json(res, 200, { ok: true, request: itemRequestView(request, user.id) });
+    }
+
+    const requestCompleteMatch = pathname.match(new RegExp(`^${API_PREFIX}/requests/([^/]+)/complete$`));
+    if (req.method === 'POST' && requestCompleteMatch) {
+      const request = store.itemRequests.find((candidate) => candidate.id === requestCompleteMatch[1]);
+      if (!request) return error(res, 404, '申请不存在', 'REQUEST_NOT_FOUND');
+      if (request.ownerId !== user.id && request.applicantId !== user.id) return error(res, 403, '无权确认该申请', 'FORBIDDEN');
+      if (!['accepted', 'completion_pending'].includes(request.status)) return error(res, 409, '只有已同意的申请才能完成', 'REQUEST_NOT_ACCEPTED');
+      const item = store.itemCycles.find((candidate) => candidate.id === request.itemId);
+      const now = new Date().toISOString();
+      if (user.id === request.ownerId) request.ownerConfirmed = true;
+      if (user.id === request.applicantId) request.applicantConfirmed = true;
+      request.updatedAt = now;
+      const bothConfirmed = request.ownerConfirmed === true && request.applicantConfirmed === true;
+      request.status = bothConfirmed ? 'completed' : 'completion_pending';
+      if (bothConfirmed) {
+        request.completedAt = now;
+        if (item) {
+          item.status = ITEM_COMPLETED_STATUSES[item.flow];
+          item.completedAt = now;
+          item.updatedAt = now;
+        }
+        if (!request.pointsAwarded) {
+          awardPoints(request.ownerId, 5, `${item?.flow === 'exchange' ? '完成交换' : '完成捐赠'}：${item?.title ?? '旧物'}`, request.id);
+          awardPoints(request.applicantId, 5, `${item?.flow === 'exchange' ? '完成交换' : '完成领取'}：${item?.title ?? '旧物'}`, request.id);
+          request.pointsAwarded = true;
+        }
+      }
+      await persist();
+      return json(res, 200, { ok: true, request: itemRequestView(request, user.id), item: item ? itemCycleView(item) : null, waitingForOtherParty: !bothConfirmed });
+    }
+
+    if (req.method === 'GET' && pathname === `${API_PREFIX}/service-orders`) {
+      const scope = url.searchParams.get('scope') ?? 'mine';
+      const orders = store.serviceOrders
+        .filter((order) => scope === 'open' ? !order.providerId && order.status === 'pending' : scope === 'provider' ? order.providerId === user.id : order.requesterId === user.id || order.providerId === user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(serviceOrderView);
+      return json(res, 200, { ok: true, orders });
+    }
+
+    if (req.method === 'POST' && pathname === `${API_PREFIX}/service-orders`) {
+      const data = await body(req);
+      const itemId = String(data.itemId ?? '').trim();
+      const item = store.itemCycles.find((candidate) => candidate.id === itemId && candidate.userId === user.id);
+      if (!item) return error(res, 404, '只能为自己发布的物品提交服务订单', 'ITEM_NOT_FOUND');
+      if (!SERVICE_TYPES.has(item.flow)) return error(res, 400, '只有维修或回收物品可以提交服务订单', 'INVALID_SERVICE_TYPE');
+      const existing = store.serviceOrders.find((order) => order.itemId === item.id && ['pending', 'accepted', 'in_progress'].includes(order.status));
+      if (existing) return json(res, 200, { ok: true, order: serviceOrderView(existing), duplicate: true });
+      const locationId = typeof data.locationId === 'string' ? data.locationId.slice(0, 100) : '';
+      const location = locationId ? store.locations.find((candidate) => candidate.id === locationId && candidate.status === 'open') : null;
+      if (locationId && !location) return error(res, 400, '无效或不可用的服务点位');
+      const now = new Date().toISOString();
+      const order = {
+        id: `service_${randomUUID()}`,
+        itemId: item.id,
+        requesterId: user.id,
+        providerId: null,
+        type: item.flow,
+        description: String(data.description ?? '').trim().slice(0, 500),
+        locationId: location?.id ?? null,
+        scheduledAt: typeof data.scheduledAt === 'string' ? data.scheduledAt.slice(0, 50) : null,
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now
+      };
+      store.serviceOrders.push(order);
+      item.status = item.flow === 'repair' ? '等待维修人员接单' : '等待回收员接单';
+      item.updatedAt = now;
+      await persist();
+      return json(res, 201, { ok: true, order: serviceOrderView(order) });
+    }
+
+    const serviceAcceptMatch = pathname.match(new RegExp(`^${API_PREFIX}/service-orders/([^/]+)/accept$`));
+    if (req.method === 'POST' && serviceAcceptMatch) {
+      const order = store.serviceOrders.find((candidate) => candidate.id === serviceAcceptMatch[1]);
+      if (!order) return error(res, 404, '服务订单不存在', 'SERVICE_ORDER_NOT_FOUND');
+      if (order.requesterId === user.id) return error(res, 400, '不能接自己的服务订单', 'OWN_ORDER');
+      if (order.status !== 'pending' || order.providerId) return error(res, 409, '该订单已经被接单或已结束', 'ORDER_NOT_AVAILABLE');
+      const now = new Date().toISOString();
+      order.providerId = user.id;
+      order.status = 'accepted';
+      order.updatedAt = now;
+      const item = store.itemCycles.find((candidate) => candidate.id === order.itemId);
+      if (item) { item.status = order.type === 'repair' ? '维修中' : '回收员处理中'; item.updatedAt = now; }
+      await persist();
+      return json(res, 200, { ok: true, order: serviceOrderView(order) });
+    }
+
+    const serviceCompleteMatch = pathname.match(new RegExp(`^${API_PREFIX}/service-orders/([^/]+)/complete$`));
+    if (req.method === 'POST' && serviceCompleteMatch) {
+      const order = store.serviceOrders.find((candidate) => candidate.id === serviceCompleteMatch[1]);
+      if (!order) return error(res, 404, '服务订单不存在', 'SERVICE_ORDER_NOT_FOUND');
+      if (order.requesterId !== user.id && order.providerId !== user.id) return error(res, 403, '无权完成该订单', 'FORBIDDEN');
+      if (!['accepted', 'completion_pending'].includes(order.status)) return error(res, 409, '订单当前不能完成', 'ORDER_NOT_ACTIVE');
+      const now = new Date().toISOString();
+      if (user.id === order.requesterId) order.requesterConfirmed = true;
+      if (user.id === order.providerId) order.providerConfirmed = true;
+      order.updatedAt = now;
+      const bothConfirmed = order.requesterConfirmed === true && order.providerConfirmed === true;
+      order.status = bothConfirmed ? 'completed' : 'completion_pending';
+      const item = store.itemCycles.find((candidate) => candidate.id === order.itemId);
+      if (bothConfirmed) {
+        order.completedAt = now;
+        if (item) { item.status = ITEM_COMPLETED_STATUSES[order.type]; item.completedAt = now; item.updatedAt = now; }
+        if (!order.pointsAwarded) {
+          awardPoints(order.requesterId, 5, `${order.type === 'repair' ? '完成维修' : '完成回收'}：${item?.title ?? '旧物'}`, order.id);
+          if (order.providerId) awardPoints(order.providerId, 3, `${order.type === 'repair' ? '提供维修服务' : '完成回收服务'}：${item?.title ?? '旧物'}`, order.id);
+          order.pointsAwarded = true;
+        }
+      }
+      await persist();
+      return json(res, 200, { ok: true, order: serviceOrderView(order), item: item ? itemCycleView(item) : null, waitingForOtherParty: !bothConfirmed });
+    }
+
     if (req.method === 'GET' && pathname === `${API_PREFIX}/items`) {
       if (refreshAllItemAppointments()) await persist();
       const items = store.itemCycles.filter((item) => item.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(itemCycleView);
@@ -493,6 +747,7 @@ async function handle(req, res) {
         id: `item_${randomUUID()}`,
         userId: user.id,
         clientItemId,
+        public: data.public !== false,
         campusId: user.campusId ?? 'hafu-main',
         locationId: location?.id ?? null,
         title,

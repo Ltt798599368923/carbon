@@ -261,3 +261,63 @@ test('behavior-only records, tasks, ledger and record reversal stay consistent',
   assert.equal(dashboard.summary.recordCount, 0);
   assert.equal(dashboard.summary.totalPoints, 0);
 });
+
+
+test('marketplace requests and service orders complete with idempotent rewards', async () => {
+  async function guest(deviceId) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/v1/auth/guest`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId })
+    });
+    const payload = await response.json();
+    return { authorization: `Bearer ${payload.token}`, 'content-type': 'application/json' };
+  }
+  const owner = await guest('market-owner');
+  const applicant = await guest('market-applicant');
+  const provider = await guest('market-provider');
+
+  const published = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+    method: 'POST', headers: owner,
+    body: JSON.stringify({ clientItemId: 'market-exchange', title: '可交换教材', itemType: '书籍', weightKg: 2, flow: 'exchange' })
+  })).json();
+  const market = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/market`, { headers: applicant })).json();
+  assert.equal(market.items.some((item) => item.id === published.item.id), true);
+
+  const request = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${published.item.id}/requests`, {
+    method: 'POST', headers: applicant,
+    body: JSON.stringify({ message: '当面交接', offerTitle: '交换我的笔记本' })
+  })).json();
+  assert.equal(request.request.status, 'pending');
+  const duplicateRequest = await (await fetch(`http://127.0.0.1:${port}/api/v1/items/${published.item.id}/requests`, {
+    method: 'POST', headers: applicant,
+    body: JSON.stringify({ message: '重复点击' })
+  })).json();
+  assert.equal(duplicateRequest.duplicate, true);
+  await fetch(`http://127.0.0.1:${port}/api/v1/requests/${request.request.id}/accept`, { method: 'POST', headers: owner });
+  const firstConfirmation = await (await fetch(`http://127.0.0.1:${port}/api/v1/requests/${request.request.id}/complete`, { method: 'POST', headers: applicant })).json();
+  assert.equal(firstConfirmation.request.status, 'completion_pending');
+  const completed = await (await fetch(`http://127.0.0.1:${port}/api/v1/requests/${request.request.id}/complete`, { method: 'POST', headers: owner })).json();
+  assert.equal(completed.request.status, 'completed');
+  const completedAgain = await fetch(`http://127.0.0.1:${port}/api/v1/requests/${request.request.id}/complete`, { method: 'POST', headers: applicant });
+  assert.equal(completedAgain.status, 409);
+
+  const repair = await (await fetch(`http://127.0.0.1:${port}/api/v1/items`, {
+    method: 'POST', headers: owner,
+    body: JSON.stringify({ clientItemId: 'market-repair', title: '待维修台灯', itemType: '小家电', weightKg: 1, flow: 'repair' })
+  })).json();
+  const service = await (await fetch(`http://127.0.0.1:${port}/api/v1/service-orders`, {
+    method: 'POST', headers: owner,
+    body: JSON.stringify({ itemId: repair.item.id, description: '更换开关' })
+  })).json();
+  const openOrders = await (await fetch(`http://127.0.0.1:${port}/api/v1/service-orders?scope=open`, { headers: provider })).json();
+  assert.equal(openOrders.orders.some((order) => order.id === service.order.id), true);
+  const accepted = await (await fetch(`http://127.0.0.1:${port}/api/v1/service-orders/${service.order.id}/accept`, { method: 'POST', headers: provider })).json();
+  assert.equal(accepted.order.status, 'accepted');
+  const firstServiceConfirmation = await (await fetch(`http://127.0.0.1:${port}/api/v1/service-orders/${service.order.id}/complete`, { method: 'POST', headers: provider })).json();
+  assert.equal(firstServiceConfirmation.order.status, 'completion_pending');
+  const completedService = await (await fetch(`http://127.0.0.1:${port}/api/v1/service-orders/${service.order.id}/complete`, { method: 'POST', headers: owner })).json();
+  assert.equal(completedService.order.status, 'completed');
+  const providerLedger = await (await fetch(`http://127.0.0.1:${port}/api/v1/points-ledger`, { headers: provider })).json();
+  assert.equal(providerLedger.entries.some((entry) => entry.orderId === service.order.id && entry.points === 3), true);
+});

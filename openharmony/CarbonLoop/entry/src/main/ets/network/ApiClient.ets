@@ -158,6 +158,58 @@ export interface ApiItem {
   events: ApiItemEvent[];
   updatedAt: string;
   createdAt: string;
+  owner?: ApiUser;
+  requestCount?: number;
+  hasMyPendingRequest?: boolean;
+}
+
+export interface ApiItemSummary {
+  id: string;
+  title: string;
+  itemType: string;
+  flow: string;
+  status: string;
+}
+
+export interface ApiServiceItemSummary {
+  id: string;
+  title: string;
+  itemType: string;
+  status: string;
+}
+
+export interface ApiItemRequest {
+  id: string;
+  itemId: string;
+  ownerId: string;
+  applicantId: string;
+  type: string;
+  message: string;
+  offerTitle: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  item?: ApiItemSummary;
+  applicant?: ApiUser;
+  owner?: ApiUser;
+  isIncoming?: boolean;
+}
+
+export interface ApiServiceOrder {
+  id: string;
+  itemId: string;
+  requesterId: string;
+  providerId?: string | null;
+  type: string;
+  description: string;
+  locationId?: string | null;
+  scheduledAt?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  item?: ApiServiceItemSummary;
+  requester?: ApiUser;
+  provider?: ApiUser;
 }
 
 export interface RequestPayload {
@@ -176,7 +228,6 @@ export interface RequestPayload {
   flow?: string;
   conditionLevel?: number;
   quantity?: number;
-  description?: string;
   imageUris?: string[];
   transferMethod?: string;
   type?: string;
@@ -189,6 +240,12 @@ export interface RequestPayload {
   shelfLocation?: string;
   reason?: string;
   note?: string;
+  message?: string;
+  offerTitle?: string;
+  itemId?: string;
+  description?: string;
+  scheduledAt?: string;
+  public?: boolean;
 }
 
 interface RequestHeaders {
@@ -218,10 +275,14 @@ interface ApiEnvelope {
   item?: ApiItem;
   items?: ApiItem[];
   stations?: ApiStation[];
+  requests?: ApiItemRequest[];
+  request?: ApiItemRequest;
+  orders?: ApiServiceOrder[];
+  order?: ApiServiceOrder;
 }
 
 // 模拟器使用 10.0.2.2；真机请改成运行 backend 的电脑局域网 IPv4 地址。
-const SERVER_URL: string = 'http://192.168.100.102:8787';
+const SERVER_URL: string = 'http://10.0.2.2:8787';
 
 export class CarbonApiClient {
   private token: string = '';
@@ -374,6 +435,58 @@ export class CarbonApiClient {
       throw new Error('后端没有返回更新后的旧物卡片');
     }
     return response.item;
+  }
+
+  public async getMarketItems(flow?: string): Promise<ApiItem[]> {
+    const suffix: string = flow === undefined ? '' : `?flow=${encodeURIComponent(flow)}`;
+    const response: ApiEnvelope = await this.request(`/api/v1/items/market${suffix}`, http.RequestMethod.GET);
+    return response.items ?? [];
+  }
+
+  public async createItemRequest(itemId: string, message: string, offerTitle?: string): Promise<ApiItemRequest> {
+    const response: ApiEnvelope = await this.request(`/api/v1/items/${encodeURIComponent(itemId)}/requests`, http.RequestMethod.POST, { message, offerTitle });
+    if (response.request === undefined) throw new Error('后端没有返回申请');
+    return response.request;
+  }
+
+  public async getRequests(scope: string = 'all'): Promise<ApiItemRequest[]> {
+    const response: ApiEnvelope = await this.request(`/api/v1/requests?scope=${encodeURIComponent(scope)}`, http.RequestMethod.GET);
+    return response.requests ?? [];
+  }
+
+  public async decideRequest(requestId: string, action: 'accept' | 'reject' | 'cancel'): Promise<ApiItemRequest> {
+    const response: ApiEnvelope = await this.request(`/api/v1/requests/${encodeURIComponent(requestId)}/${action}`, http.RequestMethod.POST);
+    if (response.request === undefined) throw new Error('后端没有返回申请状态');
+    return response.request;
+  }
+
+  public async completeRequest(requestId: string): Promise<ApiItemRequest> {
+    const response: ApiEnvelope = await this.request(`/api/v1/requests/${encodeURIComponent(requestId)}/complete`, http.RequestMethod.POST);
+    if (response.request === undefined) throw new Error('后端没有返回完成状态');
+    return response.request;
+  }
+
+  public async getServiceOrders(scope: string = 'mine'): Promise<ApiServiceOrder[]> {
+    const response: ApiEnvelope = await this.request(`/api/v1/service-orders?scope=${encodeURIComponent(scope)}`, http.RequestMethod.GET);
+    return response.orders ?? [];
+  }
+
+  public async createServiceOrder(itemId: string, description: string, locationId?: string): Promise<ApiServiceOrder> {
+    const response: ApiEnvelope = await this.request('/api/v1/service-orders', http.RequestMethod.POST, { itemId, description, locationId });
+    if (response.order === undefined) throw new Error('后端没有返回服务订单');
+    return response.order;
+  }
+
+  public async acceptServiceOrder(orderId: string): Promise<ApiServiceOrder> {
+    const response: ApiEnvelope = await this.request(`/api/v1/service-orders/${encodeURIComponent(orderId)}/accept`, http.RequestMethod.POST);
+    if (response.order === undefined) throw new Error('后端没有返回接单状态');
+    return response.order;
+  }
+
+  public async completeServiceOrder(orderId: string): Promise<ApiServiceOrder> {
+    const response: ApiEnvelope = await this.request(`/api/v1/service-orders/${encodeURIComponent(orderId)}/complete`, http.RequestMethod.POST);
+    if (response.order === undefined) throw new Error('后端没有返回订单状态');
+    return response.order;
   }
 
   private async request(path: string, method: http.RequestMethod, payload?: RequestPayload): Promise<ApiEnvelope> {
