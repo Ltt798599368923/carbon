@@ -45,6 +45,10 @@ struct Index {
   @State itemNotice: string = '';
   @State recordPeriod: RecordPeriod = 'week';
   @State recordFactorFilter: string = 'all';
+  @State trendFilterOpen: boolean = false;
+  @State recordComposerOpen: boolean = false;
+  @State recordScenarioIndex: number = -1;
+  @State recordManualAmount: boolean = false;
   @State knowledgeCategory: string = '全部';
   @State selectedArticleId: string = '';
   @State occurredDateText: string = '';
@@ -52,11 +56,16 @@ struct Index {
   @State deletedRecordIds: string[] = [];
   private api: CarbonApiClient = new CarbonApiClient();
 
-  private readonly ink: string = '#20332F';
-  private readonly accent: string = '#2C6B5D';
-  private readonly muted: string = '#71807B';
-  private readonly line: string = '#DCE5E1';
-  private readonly page: string = '#F7F8F5';
+  // Native CarbonLoop follows the approved Web visual language: deep campus green,
+  // mint highlights and translucent panels, while keeping the existing ArkUI layout.
+  private readonly ink: string = '#F1F8F4';
+  private readonly accent: string = '#9DE4BD';
+  private readonly muted: string = '#A7C3BA';
+  private readonly line: string = '#2ADAF4EA';
+  private readonly page: string = '#0B2020';
+  private readonly panel: string = '#18FFFFFF';
+  private readonly panelStrong: string = '#25FFFFFF';
+  private readonly mint: string = '#243F5F56';
 
   aboutToAppear(): void {
     const savedRecords: CarbonRecord[] | null = loadRecords(carbonPreferences);
@@ -625,6 +634,44 @@ struct Index {
     return calculatePoints(this.getSelectedFactor(), this.getPreviewAmount());
   }
 
+  private scenarioLabels(): string[] {
+    if (this.selectedFactorId === 'walk') return ['校内短途步行（约 1 公里）', '校内往返步行（约 3 公里）', '我知道距离，自己填写'];
+    if (this.selectedFactorId === 'transit') return ['短途公交 / 地铁（约 3 公里）', '日常通勤（约 8 公里）', '我知道距离，自己填写'];
+    if (this.selectedFactorId === 'recycle') return ['小件或小袋（约 1 公斤）', '中件或一袋（约 3 公斤）', '我知道重量，自己填写'];
+    if (this.selectedFactorId === 'energy') return ['离开时关灯', '提前关闭空调或电脑', '关闭宿舍空闲电器'];
+    if (this.selectedFactorId === 'reusable') return ['自带水杯', '自带餐具', '拒绝一次性袋或吸管'];
+    if (this.selectedFactorId === 'water') return ['洗手或刷牙时及时关水', '淋浴主动缩短一次', '发现漏水并及时报修'];
+    if (this.selectedFactorId === 'meal') return ['完成光盘', '少取一份吃不完的食物', '把剩余餐食打包带走'];
+    return [];
+  }
+
+  private scenarioAmount(index: number): string {
+    if (this.selectedFactorId === 'walk') return index === 0 ? '1' : '3';
+    if (this.selectedFactorId === 'transit') return index === 0 ? '3' : '8';
+    if (this.selectedFactorId === 'recycle') return index === 0 ? '1' : '3';
+    return '1';
+  }
+
+  private scenarioHint(): string {
+    if (this.selectedFactorId === 'walk' || this.selectedFactorId === 'transit') return '先按出行情境估算，不需要现在填写公里；后续接入定位后再自动校准。';
+    if (this.selectedFactorId === 'recycle') return '可以按物品实际称重，也可以先用常见大小估算。';
+    if (this.selectedFactorId === 'energy') return '节电先记录真实行为，不把一次关灯虚构成精确的“几度电”。';
+    return '选择最接近你今天实际做法的一项即可。';
+  }
+
+  private chooseScenario(index: number): void {
+    this.recordScenarioIndex = index;
+    this.recordManualAmount = (this.selectedFactorId === 'walk' || this.selectedFactorId === 'transit' || this.selectedFactorId === 'recycle') && index === 2;
+    if (!this.recordManualAmount) this.amountText = this.scenarioAmount(index);
+  }
+
+  private chooseRecordFactor(factor: CarbonFactor): void {
+    this.selectedFactorId = factor.id;
+    this.recordScenarioIndex = -1;
+    this.recordManualAmount = false;
+    this.amountText = '1';
+  }
+
   private getRecordFilter(): string | undefined {
     return this.recordFactorFilter === 'all' ? undefined : this.recordFactorFilter;
   }
@@ -742,6 +789,9 @@ struct Index {
   private openRecord(factorId: string, amount: string): void {
     this.selectedFactorId = factorId;
     this.amountText = amount;
+    this.recordComposerOpen = true;
+    this.recordManualAmount = false;
+    this.recordScenarioIndex = factorId === 'walk' && amount === '3' ? 1 : 0;
     this.occurredDateText = this.todayDateText();
     this.editingRecordId = '';
     this.currentTab = 2;
@@ -763,7 +813,7 @@ struct Index {
       Text(title)
         .fontSize(26)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF');
+        .fontColor(this.ink);
       Text(subtitle)
         .fontSize(13)
         .fontColor('#D7EFDF');
@@ -771,8 +821,38 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(20)
-    .backgroundColor('#0F766E')
+    .backgroundColor('#B828715F')
     .borderRadius(24);
+  }
+
+  @Builder
+  private brandBar() {
+    Row({ space: 12 }) {
+      Text('C')
+        .fontSize(19)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#17443D')
+        .backgroundColor('#9DE4BD')
+        .width(42)
+        .height(42)
+        .textAlign(TextAlign.Center)
+        .borderRadius(15);
+      Column({ space: 2 }) {
+        Text('CarbonLoop').fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.ink);
+        Text('碳行校园 · 低碳生活闭环助手').fontSize(11).fontColor(this.muted);
+      }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+      Button('林')
+        .fontSize(14)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#17443D')
+        .backgroundColor('#D6F59A')
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .onClick(() => this.currentTab = 5);
+    }
+    .width('100%')
+    .padding({ left: 18, right: 18, top: 14, bottom: 10 });
   }
 
   @Builder
@@ -799,7 +879,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
     .padding(14)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.panel)
     .borderRadius(18);
   }
 
@@ -828,7 +908,7 @@ struct Index {
             Button('记录')
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.openRecord('reusable', '1'));
           }
@@ -837,7 +917,7 @@ struct Index {
           .border({ width: { bottom: 1 }, color: this.line });
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
@@ -851,25 +931,25 @@ struct Index {
             Button('查看')
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.currentTab = 3);
           }
           .width('100%');
           Progress({ value: this.getChallengeProgress(), total: 15 })
             .color(this.accent)
-            .backgroundColor('#DDE6E2')
+            .backgroundColor('#2B4A45')
             .margin({ top: 12, bottom: 5 });
         }
         .padding({ top: 2, bottom: 16 })
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20)
         .padding(18);
 
         Column({ space: 0 }) {
           this.sectionTitle('旧物第二人生', `${this.items.length} 件在流转`);
           Row({ space: 14 }) {
-            Text('物').fontSize(13).fontWeight(FontWeight.Bold).fontColor('#FFFFFF').backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(8);
+            Text('物').fontSize(13).fontWeight(FontWeight.Bold).fontColor(this.ink).backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(8);
             Column({ space: 4 }) {
               Text('登记一件旧物，给它新的去处').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink);
               Text('交换、捐赠、维修或回收，形成可追踪的流转卡片').fontSize(12).fontColor(this.muted);
@@ -877,7 +957,7 @@ struct Index {
             Button('进入')
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.currentTab = 4);
           }
@@ -885,13 +965,13 @@ struct Index {
           .padding({ top: 12, bottom: 12 });
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
           this.sectionTitle('个人趋势', '日 / 周 / 月 / 年');
           Row({ space: 14 }) {
-            Text('趋').fontSize(13).fontWeight(FontWeight.Bold).fontColor('#FFFFFF').backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(4);
+            Text('趋').fontSize(13).fontWeight(FontWeight.Bold).fontColor(this.ink).backgroundColor(this.accent).width(30).height(30).textAlign(TextAlign.Center).borderRadius(4);
             Column({ space: 4 }) {
               Text('近期估算减排').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink);
               Text(formatKg(this.getTrendTotalReduction()) + ' kg CO₂e · ' + this.getVisibleRecords().length + ' 笔行为').fontSize(12).fontColor(this.muted);
@@ -899,7 +979,7 @@ struct Index {
             Button('查看')
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.currentTab = 1);
           }
@@ -908,7 +988,7 @@ struct Index {
           .border({ width: { bottom: 1 }, color: this.line });
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
@@ -919,13 +999,13 @@ struct Index {
           Button('查看全部记录')
             .fontSize(12)
             .fontColor(this.accent)
-            .backgroundColor('#E7F0EC')
+            .backgroundColor(this.mint)
             .borderRadius(4)
             .margin({ top: 10 })
             .onClick(() => this.currentTab = 2);
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
       }
       .padding({ left: 16, right: 16, top: 16, bottom: 24 });
@@ -952,7 +1032,7 @@ struct Index {
           }
           Progress({ value: this.getChallengeProgress(), total: 15 })
             .color(this.accent)
-            .backgroundColor('#DDE6E2')
+            .backgroundColor('#2B4A45')
             .margin({ top: 4, bottom: 4 });
           Text(this.challengeJoined ? '挑战已加入，完成记录会自动计入进度。' : '加入后，步行与骑行记录会自动计入本周进度。')
             .fontSize(12)
@@ -960,7 +1040,7 @@ struct Index {
           Button(this.challengeJoined ? '去记录一笔' : '加入本周挑战')
             .width('100%')
             .fontSize(14)
-            .fontColor('#FFFFFF')
+            .fontColor(this.ink)
             .backgroundColor(this.accent)
             .borderRadius(4)
             .margin({ top: 6 })
@@ -977,7 +1057,7 @@ struct Index {
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
@@ -987,7 +1067,7 @@ struct Index {
           this.ruleRow('03', '完成 15 公里后，解锁“绿色出发”徽章。');
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
@@ -1022,7 +1102,7 @@ struct Index {
         Text('物')
           .fontSize(13)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
+          .fontColor(this.ink)
           .backgroundColor(this.accent)
           .width(32)
           .height(32)
@@ -1066,7 +1146,7 @@ struct Index {
         Button('预约投递')
           .width('100%')
           .fontSize(12)
-          .fontColor('#FFFFFF')
+          .fontColor(this.ink)
           .backgroundColor(this.accent)
           .borderRadius(4)
           .onClick(() => this.bookDelivery(item));
@@ -1074,7 +1154,7 @@ struct Index {
         Button('预约领取')
           .width('100%')
           .fontSize(12)
-          .fontColor('#FFFFFF')
+          .fontColor(this.ink)
           .backgroundColor(this.accent)
           .borderRadius(4)
           .onClick(() => this.reservePickup(item));
@@ -1092,7 +1172,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.panel)
     .borderRadius(20);
   }
 
@@ -1101,8 +1181,8 @@ struct Index {
     Button(label)
       .layoutWeight(1)
       .fontSize(10)
-      .fontColor(item.flow === flow ? '#FFFFFF' : this.accent)
-      .backgroundColor(item.flow === flow ? this.accent : '#E7F0EC')
+      .fontColor(item.flow === flow ? '#153A34' : this.accent)
+      .backgroundColor(item.flow === flow ? this.accent : this.mint)
       .borderRadius(4)
       .onClick(() => this.advanceItem(item, flow));
   }
@@ -1123,7 +1203,7 @@ struct Index {
             .fontSize(14)
             .fontColor(this.ink)
             .onChange((value: string) => this.itemTitle = value)
-            .backgroundColor('#FFFFFF')
+            .backgroundColor(this.panel)
             .border({ width: 1, color: this.line })
             .borderRadius(4)
             .padding({ left: 14, right: 14 });
@@ -1131,7 +1211,7 @@ struct Index {
             .fontSize(14)
             .fontColor(this.ink)
             .onChange((value: string) => this.itemType = value)
-            .backgroundColor('#FFFFFF')
+            .backgroundColor(this.panel)
             .border({ width: 1, color: this.line })
             .borderRadius(4)
             .padding({ left: 14, right: 14 });
@@ -1143,7 +1223,7 @@ struct Index {
                 .fontSize(14)
                 .fontColor(this.ink)
                 .onChange((value: string) => this.itemWeightText = value)
-                .backgroundColor('#FFFFFF')
+                .backgroundColor(this.panel)
                 .border({ width: 1, color: this.line })
                 .borderRadius(4)
                 .padding({ left: 12, right: 12 });
@@ -1163,7 +1243,7 @@ struct Index {
           Button('登记并生成卡片')
             .width('100%')
             .fontSize(14)
-            .fontColor('#FFFFFF')
+            .fontColor(this.ink)
             .backgroundColor(this.accent)
             .borderRadius(4)
             .onClick(() => this.createItem());
@@ -1173,7 +1253,7 @@ struct Index {
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 10 }) {
@@ -1190,7 +1270,7 @@ struct Index {
         }
         .alignItems(HorizontalAlign.Start)
         .padding(18)
-        .backgroundColor('#F1F5F2')
+        .backgroundColor('#142B2A')
         .borderRadius(20);
       }
       .padding({ left: 16, right: 16, top: 16, bottom: 24 });
@@ -1231,6 +1311,15 @@ struct Index {
         }
         .width('100%');
 
+        Button(this.recordComposerOpen ? '收起记录入口' : '＋ 新增一笔低碳行为')
+          .width('100%')
+          .fontSize(15)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#153A34')
+          .backgroundColor(this.accent)
+          .borderRadius(14)
+          .onClick(() => this.recordComposerOpen = !this.recordComposerOpen);
+
         Column({ space: 8 }) {
           this.sectionTitle('减排趋势', '估算值');
           ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
@@ -1238,7 +1327,7 @@ struct Index {
               Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
               Progress({ value: bucket.reductionKg, total: Math.max(0.01, this.getTrendMaxReduction()) })
                 .color(this.accent)
-                .backgroundColor('#E7EFEB')
+                .backgroundColor(this.mint)
                 .layoutWeight(1)
                 .height(8);
               Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
@@ -1252,87 +1341,84 @@ struct Index {
         }
         .width('100%')
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
-        Scroll() {
-          Row({ space: 8 }) {
-            this.factorFilterButton('全部', 'all');
+        if (this.recordComposerOpen) {
+          Column({ space: 12 }) {
+            this.sectionTitle('今天做了什么？', '先选行为');
             ForEach(CARBON_FACTORS, (factor: CarbonFactor) => {
-              this.factorFilterButton(factor.label, factor.id);
-            }, (factor: CarbonFactor) => 'filter-' + factor.id);
+              this.factorChoice(factor);
+            }, (factor: CarbonFactor) => 'choice-' + factor.id);
+            Text(this.scenarioHint()).fontSize(11).fontColor(this.muted).lineHeight(18);
+            if (this.recordScenarioIndex >= 0) {
+              Text('具体情境').fontSize(13).fontColor(this.muted);
+              ForEach(this.scenarioLabels(), (label: string, index: number) => {
+                Button(label)
+                  .width('100%')
+                  .fontSize(13)
+                  .fontColor(index === this.recordScenarioIndex ? '#153A34' : this.accent)
+                  .backgroundColor(index === this.recordScenarioIndex ? this.accent : this.mint)
+                  .borderRadius(10)
+                  .onClick(() => this.chooseScenario(index));
+              }, (label: string, index: number) => `scenario-${index}-${label}`);
+            }
+            if (this.recordManualAmount) {
+              Text(`实际${this.getSelectedFactor().unit}`).fontSize(13).fontColor(this.muted);
+              TextInput({ text: this.amountText, placeholder: `填写${this.getSelectedFactor().unit}` })
+                .type(InputType.Number)
+                .fontSize(18)
+                .fontColor(this.ink)
+                .onChange((value: string) => this.amountText = value)
+                .backgroundColor(this.panel)
+                .border({ width: 1, color: this.line })
+                .borderRadius(10)
+                .padding({ left: 14, right: 14 });
+            }
+            Text('发生日期（YYYY-MM-DD）').fontSize(13).fontColor(this.muted);
+            TextInput({ text: this.occurredDateText, placeholder: '今天' })
+              .fontSize(15)
+              .fontColor(this.ink)
+              .onChange((value: string) => this.occurredDateText = value)
+              .backgroundColor(this.panel)
+              .border({ width: 1, color: this.line })
+              .borderRadius(10)
+              .padding({ left: 14, right: 14 });
+            Row() {
+              Column({ space: 3 }) {
+                Text('系统估算').fontSize(12).fontColor(this.muted);
+                if (this.getPreviewIsBehaviorOnly()) {
+                  Text('记录行为').fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.accent);
+                } else {
+                  Text(`${formatKg(this.getPreviewReduction())} kg CO₂e`).fontSize(22).fontWeight(FontWeight.Bold).fontColor(this.accent);
+                }
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+              Column({ space: 3 }) {
+                Text('获得积分').fontSize(12).fontColor(this.muted);
+                Text(`+${this.getPreviewPoints()} 分`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#F2BF75');
+              }.alignItems(HorizontalAlign.End);
+            }
+            .padding({ top: 8, bottom: 6 });
+            Button('保存到碳账本')
+              .width('100%')
+              .fontSize(14)
+              .fontColor('#153A34')
+              .backgroundColor(this.accent)
+              .borderRadius(10)
+              .enabled(this.recordScenarioIndex >= 0)
+              .onClick(() => this.saveRecord());
+            if (this.recordScenarioIndex < 0) {
+              Text('先选择一个具体情境，系统会自动带入记录数量。').fontSize(11).fontColor(this.muted);
+            }
+            if (this.notice.length > 0) {
+              Text(this.notice).fontSize(12).fontColor(this.accent);
+            }
           }
+          .alignItems(HorizontalAlign.Start)
+          .padding(18)
+          .backgroundColor(this.panel)
+          .borderRadius(20);
         }
-        .scrollable(ScrollDirection.Horizontal)
-        .width('100%')
-        .height(40);
-
-        Column({ space: 0 }) {
-          this.sectionTitle('新增一笔', CARBON_FACTORS.length + ' 项');
-          ForEach(CARBON_FACTORS, (factor: CarbonFactor) => {
-            this.factorChoice(factor);
-          }, (factor: CarbonFactor) => factor.id);
-        }
-        .padding(18)
-        .backgroundColor('#FFFFFF')
-        .borderRadius(20);
-
-        Column({ space: 10 }) {
-          Text(`数量（${this.getSelectedFactor().unit}）`).fontSize(13).fontColor(this.muted);
-          TextInput({ text: this.amountText, placeholder: '请输入数量' })
-            .type(InputType.Number)
-            .fontSize(20)
-            .fontColor(this.ink)
-            .onChange((value: string) => this.amountText = value)
-            .backgroundColor('#FFFFFF')
-            .border({ width: 1, color: this.line })
-            .borderRadius(4)
-            .padding({ left: 14, right: 14 });
-          Text('发生日期（YYYY-MM-DD）').fontSize(13).fontColor(this.muted);
-          TextInput({ text: this.occurredDateText, placeholder: '例如 2026-10-30' })
-            .fontSize(15)
-            .fontColor(this.ink)
-            .onChange((value: string) => this.occurredDateText = value)
-            .backgroundColor('#FFFFFF')
-            .border({ width: 1, color: this.line })
-            .borderRadius(4)
-            .padding({ left: 14, right: 14 });
-          Row() {
-            Column({ space: 3 }) {
-              Text('预计减排').fontSize(12).fontColor(this.muted);
-              if (this.getPreviewIsBehaviorOnly()) {
-                Text('暂不量化').fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.accent);
-              } else {
-                Text(`${formatKg(this.getPreviewReduction())} kg CO₂e`).fontSize(22).fontWeight(FontWeight.Bold).fontColor(this.accent);
-              }
-            }.alignItems(HorizontalAlign.Start).layoutWeight(1);
-            Column({ space: 3 }) {
-              Text('获得积分').fontSize(12).fontColor(this.muted);
-              Text(`+${this.getPreviewPoints()} 分`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#9A6528');
-            }.alignItems(HorizontalAlign.End);
-          }
-          .padding({ top: 8, bottom: 6 });
-          Button('保存到碳账本')
-            .width('100%')
-            .fontSize(14)
-            .fontColor('#FFFFFF')
-            .backgroundColor(this.accent)
-            .borderRadius(4)
-            .onClick(() => this.saveRecord());
-          if (this.editingRecordId.length > 0) {
-            Text('正在修改已有记录，保存后会重新计算积分和估算值。')
-              .fontSize(11)
-              .fontColor(this.muted)
-              .padding({ top: 4 });
-          }
-          if (this.notice.length > 0) {
-            Text(this.notice).fontSize(12).fontColor(this.accent);
-          }
-        }
-        .alignItems(HorizontalAlign.Start)
-        .padding(18)
-        .backgroundColor('#FFFFFF')
-        .borderRadius(20);
 
         Column({ space: 0 }) {
           this.sectionTitle('最近记录', `${this.records.length} 笔`);
@@ -1341,7 +1427,7 @@ struct Index {
           }, (record: CarbonRecord) => `record-${record.id}`);
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
       }
         .padding({ left: 16, right: 16, top: 16, bottom: 24 });
@@ -1376,7 +1462,7 @@ struct Index {
               Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
               Progress({ value: bucket.reductionKg, total: Math.max(0.01, this.getTrendMaxReduction()) })
                 .color(this.accent)
-                .backgroundColor('#E7EFEB')
+                .backgroundColor(this.mint)
                 .layoutWeight(1)
                 .height(8);
               Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
@@ -1442,7 +1528,7 @@ struct Index {
           Button('返回科普列表')
             .fontSize(13)
             .fontColor(this.accent)
-            .backgroundColor('#E7F0EC')
+            .backgroundColor(this.mint)
             .borderRadius(4)
             .onClick(() => this.selectedArticleId = '');
         } else {
@@ -1522,7 +1608,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
     .padding({ top: 8, bottom: 8, left: 8, right: 8 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.panel)
     .borderRadius(4);
   }
 
@@ -1532,8 +1618,8 @@ struct Index {
       Text(factor.icon)
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
-        .fontColor(factor.id === this.selectedFactorId ? '#FFFFFF' : this.accent)
-        .backgroundColor(factor.id === this.selectedFactorId ? this.accent : '#E7F0EC')
+        .fontColor(factor.id === this.selectedFactorId ? '#153A34' : this.accent)
+        .backgroundColor(factor.id === this.selectedFactorId ? this.accent : this.mint)
         .width(28)
         .height(28)
         .textAlign(TextAlign.Center)
@@ -1557,7 +1643,7 @@ struct Index {
     .width('100%')
     .padding({ top: 10, bottom: 10 })
     .border({ width: { bottom: 1 }, color: this.line })
-    .onClick(() => this.selectedFactorId = factor.id);
+    .onClick(() => this.chooseRecordFactor(factor));
   }
 
   @Builder
@@ -1567,7 +1653,7 @@ struct Index {
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.accent)
-        .backgroundColor('#E7F0EC')
+        .backgroundColor(this.mint)
         .width(28)
         .height(28)
         .textAlign(TextAlign.Center)
@@ -1586,8 +1672,8 @@ struct Index {
     .border({ width: { bottom: 1 }, color: this.line });
     Row({ space: 8 }) {
       Text(record.syncStatus === 'synced' ? '已同步' : '待同步').fontSize(10).fontColor(this.muted).layoutWeight(1);
-      Button('修改').fontSize(10).fontColor(this.accent).backgroundColor('#E7F0EC').borderRadius(4).onClick(() => this.editRecord(record));
-      Button('删除').fontSize(10).fontColor('#9A4B3D').backgroundColor('#F8E9E5').borderRadius(4).onClick(() => this.deleteRecord(record));
+      Button('修改').fontSize(10).fontColor(this.accent).backgroundColor(this.mint).borderRadius(4).onClick(() => this.editRecord(record));
+      Button('删除').fontSize(10).fontColor('#9A4B3D').backgroundColor('#4A2A2A').borderRadius(4).onClick(() => this.deleteRecord(record));
     }
     .width('100%')
     .padding({ bottom: 9 });
@@ -1619,21 +1705,21 @@ struct Index {
               .layoutWeight(1)
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.exportBackup());
             Button('恢复 JSON')
               .layoutWeight(1)
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.importBackup());
             Button('CSV 明细')
               .layoutWeight(1)
               .fontSize(12)
               .fontColor(this.accent)
-              .backgroundColor('#E7F0EC')
+              .backgroundColor(this.mint)
               .borderRadius(4)
               .onClick(() => this.exportCsv());
           }
@@ -1642,7 +1728,7 @@ struct Index {
           }
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
@@ -1654,14 +1740,14 @@ struct Index {
           this.summaryRow('步行与骑行', `${this.getChallengeProgress()} / 15 km`);
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Button('重试同步')
           .width('100%')
           .fontSize(12)
           .fontColor(this.accent)
-          .backgroundColor('#E7F0EC')
+          .backgroundColor(this.mint)
           .borderRadius(14)
           .onClick(() => this.retrySync());
 
@@ -1673,7 +1759,7 @@ struct Index {
           this.badgeRow('04', '持续行动', '累计完成 5 次记录', this.records.length >= 5);
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
 
         Column({ space: 0 }) {
@@ -1720,7 +1806,7 @@ struct Index {
           }, (record: CarbonRecord) => `points-${record.id}`);
         }
         .padding(18)
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.panel)
         .borderRadius(20);
       }
         .padding({ left: 16, right: 16, top: 16, bottom: 24 });
@@ -1765,6 +1851,9 @@ struct Index {
     this.amountText = '' + record.amount;
     this.occurredDateText = record.occurredAt.slice(0, 10);
     this.editingRecordId = record.id;
+    this.recordComposerOpen = true;
+    this.recordScenarioIndex = 0;
+    this.recordManualAmount = true;
     this.currentTab = 2;
     this.notice = '已载入记录，请修改后保存。';
   }
@@ -1893,6 +1982,7 @@ struct Index {
 
   build() {
     Column() {
+      this.brandBar();
       if (this.currentTab === 0) {
         this.homeView();
       } else if (this.currentTab === 1) {
@@ -1920,7 +2010,7 @@ struct Index {
       .width('100%')
       .padding({ left: 14, right: 14, top: 10, bottom: 12 })
       .border({ width: { top: 1 }, color: this.line })
-      .backgroundColor('#FCFCFA');
+      .backgroundColor('#101F1F');
     }
     .width('100%')
     .height('100%')
@@ -1934,7 +2024,7 @@ struct Index {
       .fontSize(13)
       .fontWeight(this.currentTab === tab ? FontWeight.Bold : FontWeight.Medium)
       .fontColor(this.currentTab === tab ? this.accent : this.muted)
-      .backgroundColor(this.currentTab === tab ? '#E7F0EC' : '#FCFCFA')
+      .backgroundColor(this.currentTab === tab ? this.mint : '#101F1F')
       .borderRadius(4)
       .onClick(() => this.currentTab = tab);
   }

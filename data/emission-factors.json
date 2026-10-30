@@ -5,7 +5,7 @@
     { "id": "walk", "label": "步行 / 骑行出行", "unit": "公里", "reductionKgPerUnit": 0.2, "pointsPerUnit": 2, "calculationStatus": "estimated_demo", "source": "CarbonLoop 演示因子，待正式来源复核", "baseline": "待核实：与燃油机动车出行的比较基准" },
     { "id": "transit", "label": "公交 / 地铁出行", "unit": "公里", "reductionKgPerUnit": 0.08, "pointsPerUnit": 1, "calculationStatus": "estimated_demo", "source": "CarbonLoop 演示因子，待正式来源复核", "baseline": "待核实：与单人机动车出行的比较基准" },
     { "id": "recycle", "label": "旧物回收", "unit": "公斤", "reductionKgPerUnit": 0.45, "pointsPerUnit": 4, "calculationStatus": "estimated_demo", "source": "CarbonLoop 演示因子，待正式来源复核", "baseline": "待核实：按物品品类和去向区分的避免排放基准" },
-    { "id": "energy", "label": "节约用电", "unit": "度", "reductionKgPerUnit": 0.57, "pointsPerUnit": 3, "calculationStatus": "estimated_demo", "source": "CarbonLoop 演示因子，待正式来源复核", "baseline": "待核实：适用电网区域和时间范围" },
+    { "id": "energy", "label": "节约用电", "unit": "次", "reductionKgPerUnit": 0, "pointsPerUnit": 2, "calculationStatus": "behavior_only", "source": "暂无可由单次行为直接核实的用电基准", "baseline": "当前只记录关灯、关闭设备等行为，不量化减排" },
     { "id": "reusable", "label": "减少一次性用品", "unit": "次", "reductionKgPerUnit": 0.06, "pointsPerUnit": 6, "calculationStatus": "estimated_demo", "source": "CarbonLoop 演示因子，待正式来源复核", "baseline": "待核实：被替代的一次性用品类型" },
     { "id": "water", "label": "节约用水", "unit": "次", "reductionKgPerUnit": 0, "pointsPerUnit": 1, "calculationStatus": "behavior_only", "source": "暂无已确认的 CarbonLoop 因子", "baseline": "当前只记录行为，不量化减排" },
     { "id": "meal", "label": "光盘行动", "unit": "次", "reductionKgPerUnit": 0, "pointsPerUnit": 2, "calculationStatus": "behavior_only", "source": "暂无已确认的 CarbonLoop 食物浪费因子", "baseline": "当前只记录行为，不量化减排" }
