@@ -841,19 +841,6 @@ struct Index {
     return max;
   }
 
-  private getPreviewTrendBuckets(): RecordBucket[] {
-    const buckets: RecordBucket[] = buildTrendBuckets([], 'week', new Date());
-    const previewValues: number[] = [0.12, 0.28, 0.2, 0.42, 0.34, 0.56, 0.3];
-    for (let index: number = 0; index < buckets.length; index += 1) {
-      buckets[index].reductionKg = previewValues[index];
-    }
-    return buckets;
-  }
-
-  private getPreviewTrendMaxReduction(): number {
-    return 0.56;
-  }
-
   private periodLabel(): string {
     if (this.recordPeriod === 'day') {
       return '今日';
@@ -1084,15 +1071,9 @@ struct Index {
         Column({ space: 8 }) {
           this.sectionTitle('本周减排', '趋势');
           if (this.getVisibleRecords().length === 0) {
-            ForEach(this.getPreviewTrendBuckets(), (bucket: RecordBucket) => {
-              Row({ space: 8 }) {
-                Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-                this.trendBar(bucket.reductionKg, this.getPreviewTrendMaxReduction());
-                Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
-              }.height(16);
-            }, (bucket: RecordBucket) => `home-preview-trend-${bucket.key}`);
             Row({ space: 8 }) {
-              Blank().layoutWeight(1);
+              Text('—').fontSize(22).fontColor(this.muted).width(28).textAlign(TextAlign.Center);
+              Text('本周还没有真实减排记录').fontSize(12).fontColor(this.muted).layoutWeight(1);
               Button('去记录')
                 .fontSize(11)
                 .fontColor(this.accent)
@@ -1680,22 +1661,31 @@ struct Index {
 
         Column({ space: 8 }) {
           this.sectionTitle('减排趋势', '估算值');
-          ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
-            Row({ space: 8 }) {
-              Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
-              Progress({ value: bucket.reductionKg, total: Math.max(0.01, this.getTrendMaxReduction()) })
-                .color(this.accent)
+          if (this.getVisibleRecords().length === 0) {
+            Row({ space: 10 }) {
+              Text('—').fontSize(22).fontColor(this.muted).width(28).textAlign(TextAlign.Center);
+              Text('当前时间范围内还没有真实记录').fontSize(12).fontColor(this.muted).layoutWeight(1);
+              Button('去记录')
+                .fontSize(11)
+                .fontColor(this.accent)
                 .backgroundColor(this.mint)
-                .layoutWeight(1)
-                .height(8);
-              Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
-            }
-            .height(18);
-          }, (bucket: RecordBucket) => 'trend-' + bucket.key);
-          Text('减排量均为基于当前因子口径的估算，不等同于核证碳资产。')
-            .fontSize(10)
-            .fontColor(this.muted)
-            .padding({ top: 4 });
+                .borderRadius(8)
+                .onClick(() => this.recordComposerOpen = true);
+            }.width('100%');
+          } else {
+            ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
+              Row({ space: 8 }) {
+                Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
+                this.trendBar(bucket.reductionKg, this.getTrendMaxReduction());
+                Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
+              }
+              .height(18);
+            }, (bucket: RecordBucket) => 'trend-' + bucket.key);
+            Text('减排量均为基于当前因子口径的估算，不等同于核证碳资产。')
+              .fontSize(10)
+              .fontColor(this.muted)
+              .padding({ top: 4 });
+          }
         }
         .width('100%')
         .padding(18)
