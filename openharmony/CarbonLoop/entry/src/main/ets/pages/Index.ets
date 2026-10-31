@@ -836,6 +836,19 @@ struct Index {
     return max;
   }
 
+  private getPreviewTrendBuckets(): RecordBucket[] {
+    const buckets: RecordBucket[] = buildTrendBuckets([], 'week', new Date());
+    const previewValues: number[] = [0.12, 0.28, 0.2, 0.42, 0.34, 0.56, 0.3];
+    for (let index: number = 0; index < buckets.length; index += 1) {
+      buckets[index].reductionKg = previewValues[index];
+    }
+    return buckets;
+  }
+
+  private getPreviewTrendMaxReduction(): number {
+    return 0.56;
+  }
+
   private periodLabel(): string {
     if (this.recordPeriod === 'day') {
       return '今日';
@@ -1049,18 +1062,24 @@ struct Index {
         .borderRadius(12);
 
         Column({ space: 8 }) {
-          this.sectionTitle('本周减排', '趋势');
+          this.sectionTitle('本周减排', this.getVisibleRecords().length === 0 ? '示例趋势' : '趋势');
           if (this.getVisibleRecords().length === 0) {
-            Row({ space: 10 }) {
-              Text('—')
-                .fontSize(22)
-                .fontColor(this.accent)
-                .width(28)
-                .textAlign(TextAlign.Center);
-              Column({ space: 3 }) {
-                Text('还没有本周减排记录').fontSize(13).fontColor(this.ink).fontWeight(FontWeight.Medium);
-                Text('记录第一笔低碳行动后，这里会显示每日趋势。').fontSize(11).fontColor(this.muted);
-              }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+            ForEach(this.getPreviewTrendBuckets(), (bucket: RecordBucket) => {
+              Row({ space: 8 }) {
+                Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
+                Progress({ value: bucket.reductionKg, total: this.getPreviewTrendMaxReduction() })
+                  .color(this.accent)
+                  .backgroundColor(this.mint)
+                  .layoutWeight(1)
+                  .height(7);
+                Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
+              }.height(16);
+            }, (bucket: RecordBucket) => `home-preview-trend-${bucket.key}`);
+            Row({ space: 8 }) {
+              Text('示例数据，仅用于展示趋势样式')
+                .fontSize(10)
+                .fontColor(this.muted)
+                .layoutWeight(1);
               Button('去记录')
                 .fontSize(11)
                 .fontColor(this.accent)
