@@ -8,7 +8,7 @@ const STORE_PATH = process.env.CARBON_STORE_PATH || DEFAULT_STORE_PATH;
 const initialStore = {
   campuses: [{
     id: 'hafu-main',
-    name: '河南财经政法大学',
+    name: '郑州西亚斯学院',
     description: '校园低碳行动示范区',
     center: { lat: 34.806, lng: 113.55 }
   }],

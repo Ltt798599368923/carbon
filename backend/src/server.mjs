@@ -380,7 +380,7 @@ async function handle(req, res) {
       if (!deviceId) return error(res, 400, 'deviceId 必填');
       let user = store.users.find((item) => item.deviceId === deviceId);
       if (!user) {
-        user = { id: `user_${randomUUID()}`, deviceId, nickname: String(data.nickname ?? '校园用户').trim().slice(0, 30) || '校园用户', campus: String(data.campus ?? '河南财经政法大学').trim().slice(0, 50), campusId: 'hafu-main', teamId: 'team-dorm-302', createdAt: new Date().toISOString() };
+        user = { id: `user_${randomUUID()}`, deviceId, nickname: String(data.nickname ?? '校园用户').trim().slice(0, 30) || '校园用户', campus: String(data.campus ?? '郑州西亚斯学院').trim().slice(0, 50), campusId: 'hafu-main', teamId: 'team-dorm-302', createdAt: new Date().toISOString() };
         store.users.push(user);
         await persist();
       } else if (!user.campusId || !user.teamId) {

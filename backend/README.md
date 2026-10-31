@@ -50,7 +50,7 @@ POST http://127.0.0.1:8787/api/v1/items/:id/cycle-events
 
 ## 校园碳循环
 
-本地演示数据包含河南财经政法大学示范校园、5 个低碳点位和体验宿舍 302。`POST /api/v1/actions` 支持 `locationId` 和 `clientActionId`；关联开放点位的行动标记为 `location_verified`，不关联点位的自报行为标记为 `self_reported`。
+本地演示数据包含郑州西亚斯学院示范校园、5 个低碳点位和体验宿舍 302。`POST /api/v1/actions` 支持 `locationId` 和 `clientActionId`；关联开放点位的行动标记为 `location_verified`，不关联点位的自报行为标记为 `self_reported`。
 
 `POST /api/v1/items` 创建物品第二人生卡片。首次登记按回收因子生成一次行动和积分；`POST /api/v1/items/:id/cycle-events` 只追加交换、捐赠、维修或回收事件，不重复增加积分。当前物品重量和减排量用于 MVP 演示，正式活动启用前必须核实因子来源和回收口径。
 

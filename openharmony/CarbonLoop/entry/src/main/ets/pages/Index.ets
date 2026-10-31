@@ -1050,17 +1050,37 @@ struct Index {
 
         Column({ space: 8 }) {
           this.sectionTitle('本周减排', '趋势');
-          ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
-            Row({ space: 8 }) {
-              Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-              Progress({ value: bucket.reductionKg, total: Math.max(0.01, this.getTrendMaxReduction()) })
-                .color(this.accent)
+          if (this.getVisibleRecords().length === 0) {
+            Row({ space: 10 }) {
+              Text('—')
+                .fontSize(22)
+                .fontColor(this.accent)
+                .width(28)
+                .textAlign(TextAlign.Center);
+              Column({ space: 3 }) {
+                Text('还没有本周减排记录').fontSize(13).fontColor(this.ink).fontWeight(FontWeight.Medium);
+                Text('记录第一笔低碳行动后，这里会显示每日趋势。').fontSize(11).fontColor(this.muted);
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1);
+              Button('去记录')
+                .fontSize(11)
+                .fontColor(this.accent)
                 .backgroundColor(this.mint)
-                .layoutWeight(1)
-                .height(7);
-              Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
-            }.height(16);
-          }, (bucket: RecordBucket) => `home-trend-${bucket.key}`);
+                .borderRadius(8)
+                .onClick(() => this.currentTab = 2);
+            }.width('100%');
+          } else {
+            ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
+              Row({ space: 8 }) {
+                Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
+                Progress({ value: bucket.reductionKg, total: Math.max(0.01, this.getTrendMaxReduction()) })
+                  .color(this.accent)
+                  .backgroundColor(this.mint)
+                  .layoutWeight(1)
+                  .height(7);
+                Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
+              }.height(16);
+            }, (bucket: RecordBucket) => `home-trend-${bucket.key}`);
+          }
         }
         .padding({ top: 12, bottom: 12, left: 14, right: 14 })
         .backgroundColor(this.panel)
@@ -1167,7 +1187,7 @@ struct Index {
       Column({ space: 16 }) {
 
         Column({ space: 12 }) {
-          this.sectionTitle('河南财经政法大学', '低碳行动点位');
+          this.sectionTitle('郑州西亚斯学院', '低碳行动点位');
           Row({ space: 8 }) {
             Column({ space: 16 }) {
               Text('图书馆').fontSize(12).fontColor(this.ink).fontWeight(FontWeight.Medium).backgroundColor(this.mint).padding(10).borderRadius(8);
@@ -1182,7 +1202,7 @@ struct Index {
           .padding(24)
           .backgroundColor(this.panelStrong)
           .borderRadius(12);
-          Text('地图点位用于展示校园行动入口；后续可接入真实校园地图与定位。')
+          Text('这里展示郑州西亚斯学院内的低碳行动入口；点位可继续接入真实地图与定位。')
             .fontSize(11)
             .fontColor(this.muted);
         }
