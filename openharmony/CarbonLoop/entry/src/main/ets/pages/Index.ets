@@ -1004,7 +1004,7 @@ struct Index {
   private trendBar(value: number, total: number) {
     Row() {
       Row()
-        .width(`${Math.max(3, Math.round(value / Math.max(0.01, total) * 100))}%`)
+        .width(`${value <= 0 ? 0 : Math.max(3, Math.round(value / Math.max(0.01, total) * 100))}%`)
         .height(7)
         .backgroundColor(this.accent)
         .borderRadius(4);
@@ -1071,9 +1071,15 @@ struct Index {
         Column({ space: 8 }) {
           this.sectionTitle('本周减排', '趋势');
           if (this.getVisibleRecords().length === 0) {
+            ForEach(buildTrendBuckets(this.records, 'week', new Date()), (bucket: RecordBucket) => {
+              Row({ space: 8 }) {
+                Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
+                this.trendBar(bucket.reductionKg, 0.01);
+                Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
+              }.height(16);
+            }, (bucket: RecordBucket) => `home-empty-trend-${bucket.key}`);
             Row({ space: 8 }) {
-              Text('—').fontSize(22).fontColor(this.muted).width(28).textAlign(TextAlign.Center);
-              Text('本周还没有真实减排记录').fontSize(12).fontColor(this.muted).layoutWeight(1);
+              Text('当前周暂无记录').fontSize(10).fontColor(this.muted).layoutWeight(1);
               Button('去记录')
                 .fontSize(11)
                 .fontColor(this.accent)
