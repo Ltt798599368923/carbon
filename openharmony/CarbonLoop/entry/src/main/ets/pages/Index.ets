@@ -841,6 +841,27 @@ struct Index {
     return max;
   }
 
+  private getDemoTrendBuckets(period: RecordPeriod): RecordBucket[] {
+    const buckets: RecordBucket[] = buildTrendBuckets([], period, new Date());
+    const values: number[] = period === 'day'
+      ? [0, 0, 0, 0, 0, 0, 0.08, 0.12, 0.18, 0.14, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      : period === 'week'
+        ? [0.12, 0.28, 0.2, 0.42, 0.34, 0.56, 0.3]
+        : period === 'month'
+          ? [0.18, 0.26, 0.12, 0.34, 0.2, 0.4, 0.28]
+          : [0.46, 0.32, 0.58, 0.42, 0.68, 0.52, 0.74, 0.38, 0.62, 0.48, 0.8, 0.56];
+    for (let index: number = 0; index < buckets.length && index < values.length; index += 1) {
+      buckets[index].reductionKg = values[index];
+    }
+    return buckets;
+  }
+
+  private getDemoTrendMaxReduction(period: RecordPeriod): number {
+    if (period === 'day') return 0.18;
+    if (period === 'year') return 0.8;
+    return 0.56;
+  }
+
   private periodLabel(): string {
     if (this.recordPeriod === 'day') {
       return '今日';
@@ -1071,15 +1092,15 @@ struct Index {
         Column({ space: 8 }) {
           this.sectionTitle('本周减排', '趋势');
           if (this.getVisibleRecords().length === 0) {
-            ForEach(buildTrendBuckets(this.records, 'week', new Date()), (bucket: RecordBucket) => {
+            ForEach(this.getDemoTrendBuckets('week'), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-                this.trendBar(bucket.reductionKg, 0.01);
+                this.trendBar(bucket.reductionKg, this.getDemoTrendMaxReduction('week'));
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
               }.height(16);
-            }, (bucket: RecordBucket) => `home-empty-trend-${bucket.key}`);
+            }, (bucket: RecordBucket) => `home-demo-trend-${bucket.key}`);
             Row({ space: 8 }) {
-              Text('当前周暂无记录').fontSize(10).fontColor(this.muted).layoutWeight(1);
+              Text('演示数据').fontSize(10).fontColor(this.muted).layoutWeight(1);
               Button('去记录')
                 .fontSize(11)
                 .fontColor(this.accent)
@@ -1666,18 +1687,20 @@ struct Index {
           .onClick(() => this.toggleRecordComposer());
 
         Column({ space: 8 }) {
-          this.sectionTitle('减排趋势', '估算值');
+          this.sectionTitle('减排趋势', this.getVisibleRecords().length === 0 ? '演示' : '估算值');
           if (this.getVisibleRecords().length === 0) {
-            Row({ space: 10 }) {
-              Text('—').fontSize(22).fontColor(this.muted).width(28).textAlign(TextAlign.Center);
-              Text('当前时间范围内还没有真实记录').fontSize(12).fontColor(this.muted).layoutWeight(1);
-              Button('去记录')
-                .fontSize(11)
-                .fontColor(this.accent)
-                .backgroundColor(this.mint)
-                .borderRadius(8)
-                .onClick(() => this.recordComposerOpen = true);
-            }.width('100%');
+            ForEach(this.getDemoTrendBuckets(this.recordPeriod), (bucket: RecordBucket) => {
+              Row({ space: 8 }) {
+                Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
+                this.trendBar(bucket.reductionKg, this.getDemoTrendMaxReduction(this.recordPeriod));
+                Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
+              }
+              .height(18);
+            }, (bucket: RecordBucket) => 'demo-trend-' + bucket.key);
+            Text('演示数据，录入真实行为后将自动替换。')
+              .fontSize(10)
+              .fontColor(this.muted)
+              .padding({ top: 4 });
           } else {
             ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
