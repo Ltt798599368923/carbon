@@ -1009,6 +1009,21 @@ struct Index {
   }
 
   @Builder
+  private trendBar(value: number, total: number) {
+    Row() {
+      Row()
+        .width(`${Math.max(3, Math.round(value / Math.max(0.01, total) * 100))}%`)
+        .height(7)
+        .backgroundColor(this.accent)
+        .borderRadius(4);
+    }
+    .layoutWeight(1)
+    .height(7)
+    .backgroundColor(this.mint)
+    .borderRadius(4);
+  }
+
+  @Builder
   private flatMetric(label: string, value: string, unit: string, note: string) {
     Column({ space: 5 }) {
       Text(label).fontSize(12).fontColor(this.muted);
@@ -1067,11 +1082,7 @@ struct Index {
             ForEach(this.getPreviewTrendBuckets(), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-                Progress({ value: bucket.reductionKg, total: this.getPreviewTrendMaxReduction() })
-                  .color(this.accent)
-                  .backgroundColor(this.mint)
-                  .layoutWeight(1)
-                  .height(7);
+                this.trendBar(bucket.reductionKg, this.getPreviewTrendMaxReduction());
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
               }.height(16);
             }, (bucket: RecordBucket) => `home-preview-trend-${bucket.key}`);
@@ -1091,11 +1102,7 @@ struct Index {
             ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-                Progress({ value: bucket.reductionKg, total: Math.max(0.01, this.getTrendMaxReduction()) })
-                  .color(this.accent)
-                  .backgroundColor(this.mint)
-                  .layoutWeight(1)
-                  .height(7);
+                this.trendBar(bucket.reductionKg, this.getTrendMaxReduction());
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
               }.height(16);
             }, (bucket: RecordBucket) => `home-trend-${bucket.key}`);
