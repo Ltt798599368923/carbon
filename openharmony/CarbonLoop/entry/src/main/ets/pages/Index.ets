@@ -862,6 +862,27 @@ struct Index {
     return 0.56;
   }
 
+  private getFilledTrendBuckets(period: RecordPeriod): RecordBucket[] {
+    const actual: RecordBucket[] = buildTrendBuckets(this.records, period, new Date(), this.getRecordFilter());
+    const demo: RecordBucket[] = this.getDemoTrendBuckets(period);
+    for (let index: number = 0; index < actual.length && index < demo.length; index += 1) {
+      if (actual[index].count === 0) {
+        actual[index].reductionKg = demo[index].reductionKg;
+      }
+    }
+    return actual;
+  }
+
+  private getFilledTrendMaxReduction(period: RecordPeriod): number {
+    let max: number = 0;
+    for (const bucket of this.getFilledTrendBuckets(period)) {
+      if (bucket.reductionKg > max) {
+        max = bucket.reductionKg;
+      }
+    }
+    return Math.max(0.01, max);
+  }
+
   private periodLabel(): string {
     if (this.recordPeriod === 'day') {
       return '今日';
@@ -1092,10 +1113,10 @@ struct Index {
         Column({ space: 8 }) {
           this.sectionTitle('本周减排', '趋势');
           if (this.getVisibleRecords().length === 0) {
-            ForEach(this.getDemoTrendBuckets('week'), (bucket: RecordBucket) => {
+            ForEach(this.getFilledTrendBuckets('week'), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-                this.trendBar(bucket.reductionKg, this.getDemoTrendMaxReduction('week'));
+                this.trendBar(bucket.reductionKg, this.getFilledTrendMaxReduction('week'));
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
               }.height(16);
             }, (bucket: RecordBucket) => `home-demo-trend-${bucket.key}`);
@@ -1109,10 +1130,10 @@ struct Index {
                 .onClick(() => this.currentTab = 2);
             }.width('100%');
           } else {
-            ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
+            ForEach(this.getFilledTrendBuckets('week'), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(32);
-                this.trendBar(bucket.reductionKg, this.getTrendMaxReduction());
+                this.trendBar(bucket.reductionKg, this.getFilledTrendMaxReduction('week'));
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(38).textAlign(TextAlign.End);
               }.height(16);
             }, (bucket: RecordBucket) => `home-trend-${bucket.key}`);
@@ -1689,10 +1710,10 @@ struct Index {
         Column({ space: 8 }) {
           this.sectionTitle('减排趋势', this.getVisibleRecords().length === 0 ? '演示' : '估算值');
           if (this.getVisibleRecords().length === 0) {
-            ForEach(this.getDemoTrendBuckets(this.recordPeriod), (bucket: RecordBucket) => {
+            ForEach(this.getFilledTrendBuckets(this.recordPeriod), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
-                this.trendBar(bucket.reductionKg, this.getDemoTrendMaxReduction(this.recordPeriod));
+                this.trendBar(bucket.reductionKg, this.getFilledTrendMaxReduction(this.recordPeriod));
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
               }
               .height(18);
@@ -1702,10 +1723,10 @@ struct Index {
               .fontColor(this.muted)
               .padding({ top: 4 });
           } else {
-            ForEach(this.getTrendBuckets(), (bucket: RecordBucket) => {
+            ForEach(this.getFilledTrendBuckets(this.recordPeriod), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
                 Text(bucket.label).fontSize(10).fontColor(this.muted).width(34);
-                this.trendBar(bucket.reductionKg, this.getTrendMaxReduction());
+                this.trendBar(bucket.reductionKg, this.getFilledTrendMaxReduction(this.recordPeriod));
                 Text(formatKg(bucket.reductionKg)).fontSize(10).fontColor(this.muted).width(40).textAlign(TextAlign.End);
               }
               .height(18);
