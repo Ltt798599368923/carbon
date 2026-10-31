@@ -1077,7 +1077,7 @@ struct Index {
         .borderRadius(12);
 
         Column({ space: 8 }) {
-          this.sectionTitle('本周减排', this.getVisibleRecords().length === 0 ? '示例趋势' : '趋势');
+          this.sectionTitle('本周减排', '趋势');
           if (this.getVisibleRecords().length === 0) {
             ForEach(this.getPreviewTrendBuckets(), (bucket: RecordBucket) => {
               Row({ space: 8 }) {
@@ -1087,10 +1087,7 @@ struct Index {
               }.height(16);
             }, (bucket: RecordBucket) => `home-preview-trend-${bucket.key}`);
             Row({ space: 8 }) {
-              Text('示例数据，仅用于展示趋势样式')
-                .fontSize(10)
-                .fontColor(this.muted)
-                .layoutWeight(1);
+              Blank().layoutWeight(1);
               Button('去记录')
                 .fontSize(11)
                 .fontColor(this.accent)
