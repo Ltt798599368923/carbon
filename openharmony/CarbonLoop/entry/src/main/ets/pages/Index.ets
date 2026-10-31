@@ -793,9 +793,14 @@ struct Index {
 
   private chooseRecordFactor(factor: CarbonFactor): void {
     this.selectedFactorId = factor.id;
-    this.recordScenarioIndex = -1;
-    this.recordManualAmount = false;
-    this.amountText = '1';
+    this.chooseScenario(0);
+  }
+
+  private toggleRecordComposer(): void {
+    this.recordComposerOpen = !this.recordComposerOpen;
+    if (this.recordComposerOpen && this.recordScenarioIndex < 0) {
+      this.chooseScenario(0);
+    }
   }
 
   private getRecordFilter(): string | undefined {
@@ -1671,7 +1676,7 @@ struct Index {
           .fontColor(this.panel)
           .backgroundColor(this.accent)
           .borderRadius(12)
-          .onClick(() => this.recordComposerOpen = !this.recordComposerOpen);
+          .onClick(() => this.toggleRecordComposer());
 
         Column({ space: 8 }) {
           this.sectionTitle('减排趋势', '估算值');
@@ -1755,7 +1760,7 @@ struct Index {
             Button('保存到碳账本')
               .width('100%')
               .fontSize(14)
-              .fontColor('#202925')
+              .fontColor(this.panel)
               .backgroundColor(this.accent)
               .borderRadius(8)
               .enabled(this.recordScenarioIndex >= 0)
